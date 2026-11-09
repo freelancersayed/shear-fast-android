@@ -27,10 +27,11 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: FlashShare-P2P-Debug-APK
           path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
