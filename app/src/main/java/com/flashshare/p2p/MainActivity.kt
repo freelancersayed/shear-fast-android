@@ -29,7 +29,7 @@ import com.flashshare.p2p.ui.components.PermissionRationaleDialog
 import com.flashshare.p2p.ui.screens.DashboardScreen
 import com.flashshare.p2p.ui.screens.DiscoveryScreen
 import com.flashshare.p2p.ui.screens.TransferScreen
-import com.flashshare.p2p.ui.theme.DarkBackground
+import com.flashshare.p2p.ui.theme.BackgroundDark
 import com.flashshare.p2p.ui.theme.FlashShareTheme
 import com.flashshare.p2p.ui.viewmodel.MainViewModel
 
@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
 fun FlashShareMainContent(viewModel: MainViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val peers by viewModel.discoveredPeers.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showPermissionDialog by remember { mutableStateOf(false) }
@@ -87,7 +88,6 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
 
     // Permission Verification Helper
     fun executeWithPermissions(action: () -> Unit) {
-        val context = androidx.compose.ui.platform.LocalContext.current
         if (PermissionManager.hasAllPermissions(context)) {
             action()
         } else {
@@ -98,7 +98,7 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = DarkBackground,
+        containerColor = BackgroundDark,
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         when (val state = uiState) {
