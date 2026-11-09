@@ -1,0 +1,25 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+  <!-- Outer glowing rounded square background -->
+  <path
+      android:fillColor="#1A2235"
+      android:strokeColor="#00E5FF"
+      android:strokeWidth="2.5"
+      android:pathData="M24,8 L72,8 A16,16 0 0,1 88,24 L88,72 A16,16 0 0,1 72,88 L24,88 A16,16 0 0,1 8,72 L8,24 A16,16 0 0,1 24,8 Z" />
+  
+  <!-- Lightning bolt symbol -->
+  <path
+      android:fillColor="#00E5FF"
+      android:pathData="M52,18 L28,52 L46,52 L42,78 L68,44 L50,44 Z" />
+
+  <!-- Accent dot / connection signal -->
+  <path
+      android:fillColor="#7C4DFF"
+      android:pathData="M66,22 A4,4 0 1,1 66,21.9 Z" />
+  <path
+      android:fillColor="#00E676"
+      android:pathData="M30,74 A4,4 0 1,1 30,73.9 Z" />
+</vector>
