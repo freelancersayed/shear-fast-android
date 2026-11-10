@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-path name="external_files" path="." />
+    <external-path name="downloads" path="Download/" />
+    <external-path name="bondhushare_downloads" path="Download/BondhuShare/" />
+    <external-files-path name="app_external_files" path="." />
+    <files-path name="app_internal_files" path="." />
+    <cache-path name="app_cache" path="." />
+</paths>

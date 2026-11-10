@@ -10,6 +10,7 @@ import com.flashshare.p2p.data.model.FileTransferPayload
 import com.flashshare.p2p.data.model.PeerConnectionType
 import com.flashshare.p2p.data.model.TransferProgress
 import com.flashshare.p2p.data.repository.FileStorageRepository
+import com.flashshare.p2p.engine.socket.TransferConfig
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.AdvertisingOptions
 import com.google.android.gms.nearby.connection.BandwidthInfo
@@ -47,7 +48,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Connections initially establish over Bluetooth. This engine explicitly forces disruptive
  * bandwidth upgrade (setDisruptiveUpgrade(true)) to 5GHz Wi-Fi Direct and waits for
  * onBandwidthChanged(quality >= 2) BEFORE streaming files, ensuring 50-100+ MB/s speeds
- * instead of slow Bluetooth RFCOMM speeds.
+ * instead of slow Bluetooth RFCOMM speeds. Uses 256 KB high-performance buffers.
  */
 class NearbyConnectionEngine(
     private val context: Context,
@@ -69,12 +70,18 @@ class NearbyConnectionEngine(
 
     val deviceName: String = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
 
-    // Tracking for ongoing payload transfers
-    private var pendingOutgoingUri: Uri? = null
-    private var pendingOutgoingMetadata: FileTransferPayload? = null
+    // Multi-file batch tracking
+    private var pendingOutgoingUris: List<Uri> = emptyList()
+    private var pendingOutgoingMetadatas: List<FileTransferPayload> = emptyList()
+    private var currentFileIndex: Int = 0
+    private var currentConnectedEndpointId: String? = null
     private var outgoingPayloadId: Long? = null
+
     private var incomingPayload: Payload? = null
     private var incomingMetadata: FileTransferPayload? = null
+    private var totalBytesBatchSent: Long = 0L
+    private var totalBytesBatchReceived: Long = 0L
+
     private var transferStartTime = 0L
     private var lastSampleTime = 0L
     private var lastBytesTransferred = 0L
@@ -173,10 +180,12 @@ class NearbyConnectionEngine(
     }
 
     private fun startTransmitIfReady(endpointId: String, transportName: String) {
-        val uri = pendingOutgoingUri ?: return
-        val meta = pendingOutgoingMetadata ?: return
+        if (pendingOutgoingUris.isEmpty() || currentFileIndex >= pendingOutgoingUris.size) return
+        currentConnectedEndpointId = endpointId
         if (isPayloadTransmitted.compareAndSet(false, true)) {
             Log.i(TAG, ">>> Transmitting file payload over $transportName to $endpointId at maximum speed!")
+            val uri = pendingOutgoingUris[currentFileIndex]
+            val meta = pendingOutgoingMetadatas[currentFileIndex]
             transmitFilePayload(endpointId, uri, meta)
         }
     }
@@ -203,8 +212,10 @@ class NearbyConnectionEngine(
                 Payload.Type.FILE -> {
                     Log.i(TAG, "Incoming FILE payload ID: ${payload.id}")
                     incomingPayload = payload
-                    transferStartTime = System.currentTimeMillis()
-                    lastSampleTime = transferStartTime
+                    if (transferStartTime == 0L) {
+                        transferStartTime = System.currentTimeMillis()
+                    }
+                    lastSampleTime = System.currentTimeMillis()
                     lastBytesTransferred = 0L
                     smoothedSpeedMBps = 0.0
                 }
@@ -225,7 +236,7 @@ class NearbyConnectionEngine(
             }
 
             val elapsedSinceSample = now - lastSampleTime
-            if (elapsedSinceSample >= 200) {
+            if (elapsedSinceSample >= TransferConfig.METRICS_INTERVAL_MS) {
                 val bytesSinceSample = bytesTransferred - lastBytesTransferred
                 if (bytesSinceSample > 0 && elapsedSinceSample > 0) {
                     val instantSpeed = (bytesSinceSample.toDouble() / (1024.0 * 1024.0)) / (elapsedSinceSample.toDouble() / 1000.0)
@@ -237,7 +248,8 @@ class NearbyConnectionEngine(
                     (remainingBytes.toDouble() / (smoothedSpeedMBps * 1024.0 * 1024.0)).toLong()
                 } else 0L
 
-                val currentName = incomingMetadata?.fileName ?: pendingOutgoingMetadata?.fileName ?: "File"
+                val currentName = incomingMetadata?.fileName ?: pendingOutgoingMetadatas.getOrNull(currentFileIndex)?.fileName ?: "File"
+                val prefix = if (pendingOutgoingUris.size > 1) "(${currentFileIndex + 1}/${pendingOutgoingUris.size}) " else ""
 
                 onTransferProgress?.invoke(
                     TransferProgress(
@@ -245,7 +257,7 @@ class NearbyConnectionEngine(
                         totalBytes = totalBytes,
                         speedMBps = smoothedSpeedMBps,
                         etaSeconds = etaSeconds,
-                        fileName = currentName
+                        fileName = "$prefix$currentName"
                     )
                 )
 
@@ -264,6 +276,8 @@ class NearbyConnectionEngine(
                         engineScope.launch {
                             val meta = incomingMetadata ?: FileTransferPayload("received_file", totalBytes, "application/octet-stream")
                             val destinationUri = saveReceivedNearbyFile(filePayload, meta)
+                            totalBytesBatchReceived += totalBytes
+
                             onTransferCompleted?.invoke(
                                 meta.fileName,
                                 totalBytes,
@@ -276,19 +290,34 @@ class NearbyConnectionEngine(
                             incomingMetadata = null
                         }
                     } else if (update.payloadId == outgoingPayloadId) {
-                        // Sender completed
-                        val meta = pendingOutgoingMetadata ?: FileTransferPayload("file", totalBytes, "")
-                        onTransferCompleted?.invoke(
-                            meta.fileName,
-                            totalBytes,
-                            durationSec,
-                            avgSpeed,
-                            null,
-                            true
-                        )
-                        pendingOutgoingUri = null
-                        pendingOutgoingMetadata = null
-                        outgoingPayloadId = null
+                        // Sender completed a file
+                        totalBytesBatchSent += totalBytes
+                        val meta = pendingOutgoingMetadatas.getOrNull(currentFileIndex) ?: FileTransferPayload("file", totalBytes, "")
+
+                        currentFileIndex++
+                        if (currentFileIndex < pendingOutgoingUris.size) {
+                            // Queue next file
+                            val nextUri = pendingOutgoingUris[currentFileIndex]
+                            val nextMeta = pendingOutgoingMetadatas[currentFileIndex]
+                            Log.i(TAG, "Batch send: file ${currentFileIndex + 1}/${pendingOutgoingUris.size} (${nextMeta.fileName})")
+                            transmitFilePayload(endpointId, nextUri, nextMeta)
+                        } else {
+                            // Entire batch finished
+                            val totalDurationSec = ((now - transferStartTime).toDouble() / 1000.0).coerceAtLeast(0.1)
+                            val batchAvgSpeed = (totalBytesBatchSent.toDouble() / (1024.0 * 1024.0)) / totalDurationSec
+                            onTransferCompleted?.invoke(
+                                if (pendingOutgoingUris.size > 1) "${pendingOutgoingUris.size} Files" else meta.fileName,
+                                totalBytesBatchSent,
+                                totalDurationSec,
+                                batchAvgSpeed,
+                                null,
+                                true
+                            )
+                            pendingOutgoingUris = emptyList()
+                            pendingOutgoingMetadatas = emptyList()
+                            currentFileIndex = 0
+                            outgoingPayloadId = null
+                        }
                     }
                 }
                 PayloadTransferUpdate.Status.FAILURE,
@@ -315,14 +344,14 @@ class NearbyConnectionEngine(
             if (javaFile != null && javaFile.exists()) {
                 FileInputStream(javaFile).use { input ->
                     destinationTarget.outputStream.use { output ->
-                        input.copyTo(output, bufferSize = 64 * 1024)
+                        input.copyTo(output, bufferSize = TransferConfig.BUFFER_SIZE)
                     }
                 }
                 javaFile.delete()
             } else if (pfd != null) {
                 FileInputStream(pfd.fileDescriptor).use { input ->
                     destinationTarget.outputStream.use { output ->
-                        input.copyTo(output, bufferSize = 64 * 1024)
+                        input.copyTo(output, bufferSize = TransferConfig.BUFFER_SIZE)
                     }
                 }
                 pfd.close()
@@ -382,11 +411,14 @@ class NearbyConnectionEngine(
     }
 
     /**
-     * Connects to a discovered remote endpoint and prepares high-speed file send.
+     * Connects to a discovered remote endpoint and prepares high-speed file send (batch or single).
      */
-    fun connectAndSend(endpointId: String, uri: Uri, metadata: FileTransferPayload) {
-        pendingOutgoingUri = uri
-        pendingOutgoingMetadata = metadata
+    fun connectAndSend(endpointId: String, uris: List<Uri>, metadatas: List<FileTransferPayload>) {
+        pendingOutgoingUris = uris
+        pendingOutgoingMetadatas = metadatas
+        currentFileIndex = 0
+        currentConnectedEndpointId = endpointId
+        totalBytesBatchSent = 0L
         isPayloadTransmitted.set(false)
         _connectionState.value = "REQUESTING"
 
@@ -398,6 +430,10 @@ class NearbyConnectionEngine(
             Log.e(TAG, "Nearby requestConnection failed: ${e.message}", e)
             onError?.invoke("Connection request failed: ${e.message}")
         }
+    }
+
+    fun connectAndSend(endpointId: String, uri: Uri, metadata: FileTransferPayload) {
+        connectAndSend(endpointId, listOf(uri), listOf(metadata))
     }
 
     /**
@@ -448,11 +484,15 @@ class NearbyConnectionEngine(
             connectionsClient.stopAllEndpoints()
             _discoveredPeers.value = emptyList()
             _connectionState.value = "IDLE"
-            pendingOutgoingUri = null
-            pendingOutgoingMetadata = null
+            pendingOutgoingUris = emptyList()
+            pendingOutgoingMetadatas = emptyList()
+            currentFileIndex = 0
+            currentConnectedEndpointId = null
             outgoingPayloadId = null
             incomingPayload = null
             incomingMetadata = null
+            totalBytesBatchSent = 0L
+            totalBytesBatchReceived = 0L
             isPayloadTransmitted.set(false)
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping Nearby client: ${e.message}", e)

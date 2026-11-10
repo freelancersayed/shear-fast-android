@@ -12,6 +12,7 @@ import com.flashshare.p2p.data.model.PeerRole
 import com.flashshare.p2p.data.model.TransferProgress
 import com.flashshare.p2p.data.model.TransferState
 import com.flashshare.p2p.data.repository.FileStorageRepository
+import com.flashshare.p2p.data.repository.ReceivedFileInfo
 import com.flashshare.p2p.engine.nearby.NearbyConnectionEngine
 import com.flashshare.p2p.engine.socket.SocketManager
 import com.flashshare.p2p.engine.socket.TransferConfig
@@ -27,7 +28,7 @@ import kotlinx.coroutines.launch
 
 /**
  * MainViewModel manages high-speed peer discovery, dual-engine lifecycle
- * (Nearby Connections + Wi-Fi Direct), and reactive UI state updates for FlashShare P2P.
+ * (Nearby Connections + Wi-Fi Direct), batch file sending, and received file management for BondhuShare.
  */
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -39,11 +40,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow<TransferState>(TransferState.Idle)
     val uiState: StateFlow<TransferState> = _uiState.asStateFlow()
 
-    private val _selectedFileUri = MutableStateFlow<Uri?>(null)
-    val selectedFileUri: StateFlow<Uri?> = _selectedFileUri.asStateFlow()
+    private val _selectedFileUris = MutableStateFlow<List<Uri>>(emptyList())
+    val selectedFileUris: StateFlow<List<Uri>> = _selectedFileUris.asStateFlow()
 
-    private val _filePayload = MutableStateFlow<FileTransferPayload?>(null)
-    val filePayload: StateFlow<FileTransferPayload?> = _filePayload.asStateFlow()
+    private val _filePayloads = MutableStateFlow<List<FileTransferPayload>>(emptyList())
+    val filePayloads: StateFlow<List<FileTransferPayload>> = _filePayloads.asStateFlow()
 
     private val _allDiscoveredPeers = MutableStateFlow<List<DiscoveredPeer>>(emptyList())
     val discoveredPeers: StateFlow<List<DiscoveredPeer>> = _allDiscoveredPeers.asStateFlow()
@@ -51,11 +52,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _hardwareWarnings = MutableStateFlow<List<String>>(emptyList())
     val hardwareWarnings: StateFlow<List<String>> = _hardwareWarnings.asStateFlow()
 
+    private val _receivedFiles = MutableStateFlow<List<ReceivedFileInfo>>(emptyList())
+    val receivedFiles: StateFlow<List<ReceivedFileInfo>> = _receivedFiles.asStateFlow()
+
     private var activeTransferJob: Job? = null
     private var isCurrentlySender = false
 
     init {
         setupEngines()
+        loadReceivedFiles()
     }
 
     private fun setupEngines() {
@@ -100,6 +105,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 destinationUri = destUri,
                 isSender = isSender
             )
+            loadReceivedFiles()
         }
 
         nearbyEngine.onError = { error ->
@@ -114,10 +120,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         wifiDirectEngine.onConnectionEstablished = { groupOwnerAddress, isGroupOwner ->
             Log.i(TAG, "Wi-Fi Direct connected. GO: $groupOwnerAddress, isGO: $isGroupOwner")
             if (!isGroupOwner) {
-                // Client side initiates sending
-                val uri = _selectedFileUri.value
-                if (uri != null) {
-                    startSocketSend(groupOwnerAddress, TransferConfig.DEFAULT_PORT, uri)
+                val uris = _selectedFileUris.value
+                if (uris.isNotEmpty()) {
+                    startSocketSend(groupOwnerAddress, TransferConfig.DEFAULT_PORT, uris)
                 }
             }
         }
@@ -125,6 +130,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         wifiDirectEngine.onError = { error ->
             Log.e(TAG, "Wi-Fi Direct Error: $error")
         }
+    }
+
+    /**
+     * Loads or refreshes the list of files stored in Downloads/BondhuShare.
+     */
+    fun loadReceivedFiles() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val list = storageRepo.getReceivedFiles()
+            _receivedFiles.value = list
+        }
+    }
+
+    /**
+     * Opens or plays a received file with device default player/viewer.
+     */
+    fun openReceivedFile(file: ReceivedFileInfo): Boolean {
+        return storageRepo.openReceivedFile(file)
     }
 
     /**
@@ -136,21 +158,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Prepares Sender flow when a file is selected from system media picker.
+     * Handles selection of multiple files/photos for high-speed transmission.
      */
-    fun onFileSelectedForSend(uri: Uri) {
+    fun onFilesSelectedForSend(uris: List<Uri>) {
+        if (uris.isEmpty()) return
         isCurrentlySender = true
         refreshHardwareStatus()
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val metadata = storageRepo.getFileMetadata(uri)
-                _selectedFileUri.value = uri
-                _filePayload.value = metadata
+                val metadatas = uris.map { storageRepo.getFileMetadata(it) }
+                _selectedFileUris.value = uris
+                _filePayloads.value = metadatas
+
+                val title = if (uris.size > 1) "${uris.size} files selected. Scanning for devices…" else "Scanning for receiving devices…"
 
                 _uiState.value = TransferState.Discovering(
                     role = PeerRole.SENDER,
-                    statusMessage = "Scanning for receiving devices…"
+                    statusMessage = title
                 )
 
                 // Activate discovery on both engines concurrently
@@ -158,9 +183,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 wifiDirectEngine.startDiscovery()
             } catch (e: Exception) {
                 Log.e(TAG, "Error resolving file metadata", e)
-                _uiState.value = TransferState.Error("Failed to access selected file: ${e.message}", isSender = true)
+                _uiState.value = TransferState.Error("Failed to access selected files: ${e.message}", isSender = true)
             }
         }
+    }
+
+    fun onFileSelectedForSend(uri: Uri) {
+        onFilesSelectedForSend(listOf(uri))
     }
 
     /**
@@ -178,7 +207,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         nearbyEngine.startAdvertising()
         wifiDirectEngine.createGroup()
 
-        // Also launch fallback socket listener on port 8888 for Wi-Fi Direct connections
+        // Also launch fallback socket listener on port 8988 for Wi-Fi Direct & Local/Remote transfers
         activeTransferJob?.cancel()
         activeTransferJob = viewModelScope.launch(Dispatchers.IO) {
             val result = socketManager.receiveOriginalFile(
@@ -203,6 +232,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         destinationUri = stats.destinationUri,
                         isSender = false
                     )
+                    loadReceivedFiles()
                 },
                 onFailure = { error ->
                     if (error !is InterruptedException && _uiState.value !is TransferState.Completed) {
@@ -219,33 +249,49 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun connectAndSend(peer: DiscoveredPeer) {
         _uiState.value = TransferState.Connecting(peer)
 
+        val uris = _selectedFileUris.value
+        val metas = _filePayloads.value
+
+        if (uris.isEmpty() || metas.isEmpty()) {
+            _uiState.value = TransferState.Error("No files selected for transfer", isSender = true)
+            return
+        }
+
         if (peer.connectionType == PeerConnectionType.WIFI_DIRECT) {
             wifiDirectEngine.connectToDevice(peer.id)
         } else {
-            val uri = _selectedFileUri.value
-            val meta = _filePayload.value
-            if (uri != null && meta != null) {
-                nearbyEngine.connectAndSend(peer.id, uri, meta)
-            } else {
-                _uiState.value = TransferState.Error("No file selected for transfer", isSender = true)
-            }
+            nearbyEngine.connectAndSend(peer.id, uris, metas)
         }
     }
 
-    private fun startSocketSend(targetIp: String, port: Int, uri: Uri) {
+    /**
+     * Sends selected files directly to a remote IP address over LAN or Internet.
+     */
+    fun sendViaDirectIp(targetIp: String, port: Int = TransferConfig.DEFAULT_PORT) {
+        val uris = _selectedFileUris.value
+        if (uris.isEmpty()) {
+            _uiState.value = TransferState.Error("Please select files first before sending", isSender = true)
+            return
+        }
+        isCurrentlySender = true
+        startSocketSend(targetIp.trim(), port, uris)
+    }
+
+    private fun startSocketSend(targetIp: String, port: Int, uris: List<Uri>) {
         activeTransferJob?.cancel()
         activeTransferJob = viewModelScope.launch(Dispatchers.IO) {
+            val summaryTitle = if (uris.size > 1) "${uris.size} Files" else (_filePayloads.value.firstOrNull()?.fileName ?: "File")
             _uiState.value = TransferState.Transferring(
-                progress = TransferProgress(fileName = _filePayload.value?.fileName ?: "File"),
+                progress = TransferProgress(fileName = summaryTitle),
                 isSender = true,
                 peerName = targetIp
             )
 
-            val result = socketManager.sendOriginalFile(
+            val result = socketManager.sendOriginalFiles(
                 context = getApplication(),
                 targetHost = targetIp,
                 port = port,
-                sourceUri = uri,
+                sourceUris = uris,
                 onProgress = { progress ->
                     _uiState.value = TransferState.Transferring(
                         progress = progress,
@@ -288,6 +334,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         wifiDirectEngine.tearDown()
         _uiState.value = TransferState.Idle
         _allDiscoveredPeers.value = emptyList()
+        _selectedFileUris.value = emptyList()
+        _filePayloads.value = emptyList()
     }
 
     /**

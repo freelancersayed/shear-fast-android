@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flashshare.p2p.R
+import com.flashshare.p2p.data.repository.ReceivedFileInfo
 import com.flashshare.p2p.ui.theme.BottomBarIconActive
 import com.flashshare.p2p.ui.theme.BottomBarIconInactive
 import com.flashshare.p2p.ui.theme.BottomBarMutedTeal
@@ -53,12 +54,16 @@ import com.flashshare.p2p.ui.theme.CorporateBlue
  * - Flat "Receive Fast" button in Slate Grey (#B0BEC5)
  * - Centered connection helper text
  * - Persistent "Copyright by: Sayed Hossain" at the bottom
- * - Slate/teal bottom navigation bar with Home, Files, Settings icons
+ * - Slate/teal bottom navigation bar with Home, Files (History), and Settings screens
  */
 @Composable
 fun DashboardScreen(
     onSendClicked: () -> Unit,
     onReceiveClicked: () -> Unit,
+    receivedFiles: List<ReceivedFileInfo> = emptyList(),
+    onOpenFile: (ReceivedFileInfo) -> Unit = {},
+    onRefreshFiles: () -> Unit = {},
+    onSendDirectIp: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedNavIndex by remember { mutableIntStateOf(0) }
@@ -68,110 +73,137 @@ fun DashboardScreen(
             .fillMaxSize()
             .background(CorporateBlue)
     ) {
-        // Main Scrollable / Centered Area
-        Column(
+        // Tab Content Switching
+        Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(44.dp))
+            when (selectedNavIndex) {
+                0 -> {
+                    // Home Screen
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Spacer(modifier = Modifier.height(44.dp))
 
-            // 1. Centered Handshake Logo
-            Image(
-                painter = painterResource(id = R.drawable.ic_bondhushare_handshake),
-                contentDescription = "BondhuShare Logo",
-                modifier = Modifier
-                    .size(140.dp)
-            )
+                        // 1. Centered Handshake Logo
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_bondhushare_handshake),
+                            contentDescription = "BondhuShare Logo",
+                            modifier = Modifier.size(140.dp)
+                        )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-            // 2. App Title
-            Text(
-                text = "BondhuShare",
-                color = Color.White,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp
-            )
+                        // 2. App Title
+                        Text(
+                            text = "BondhuShare",
+                            color = Color.White,
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
 
-            Spacer(modifier = Modifier.height(40.dp))
+                        Spacer(modifier = Modifier.height(40.dp))
 
-            // 3. Send (Original Quality) Button - Aqua Green (#4DB6AC)
-            Button(
-                onClick = onSendClicked,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ButtonAquaGreen,
-                    contentColor = Color.White
-                ),
-                elevation = ButtonDefaults.buttonElevation(
-                    defaultElevation = 0.dp,
-                    pressedElevation = 2.dp
-                )
-            ) {
-                Text(
-                    text = "Send (Original Quality)",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                        // 3. Send (Original Quality) Button - Aqua Green (#4DB6AC)
+                        Button(
+                            onClick = onSendClicked,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(64.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ButtonAquaGreen,
+                                contentColor = Color.White
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 0.dp,
+                                pressedElevation = 2.dp
+                            )
+                        ) {
+                            Text(
+                                text = "Send (Original Quality)",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // 4. Receive Fast Button - Flat Slate Grey (#B0BEC5)
+                        Button(
+                            onClick = onReceiveClicked,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(64.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ButtonSlateGrey,
+                                contentColor = Color.White
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 0.dp,
+                                pressedElevation = 2.dp
+                            )
+                        ) {
+                            Text(
+                                text = "Receive Fast",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(26.dp))
+
+                        // 5. Helper Text
+                        Text(
+                            text = "Ensure Wi-Fi or Bluetooth is enabled\nfor best connection",
+                            color = Color.White.copy(alpha = 0.85f),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Normal,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 20.sp
+                        )
+
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        // 6. Persistent Copyright Text
+                        Text(
+                            text = "Copyright by: Sayed Hossain",
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Normal,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                    }
+                }
+
+                1 -> {
+                    // Files Screen (Downloads/BondhuShare History)
+                    FilesScreen(
+                        files = receivedFiles,
+                        onFileClick = onOpenFile,
+                        onRefresh = onRefreshFiles,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                2 -> {
+                    // Settings Screen
+                    SettingsScreen(
+                        onSendDirectIp = onSendDirectIp,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 4. Receive Fast Button - Flat Slate Grey (#B0BEC5)
-            Button(
-                onClick = onReceiveClicked,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ButtonSlateGrey,
-                    contentColor = Color.White
-                ),
-                elevation = ButtonDefaults.buttonElevation(
-                    defaultElevation = 0.dp,
-                    pressedElevation = 2.dp
-                )
-            ) {
-                Text(
-                    text = "Receive Fast",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(26.dp))
-
-            // 5. Helper Text
-            Text(
-                text = "Ensure Wi-Fi or Bluetooth is enabled\nfor best connection",
-                color = Color.White.copy(alpha = 0.85f),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Normal,
-                textAlign = TextAlign.Center,
-                lineHeight = 20.sp
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // 6. Persistent Copyright Text
-            Text(
-                text = "Copyright by: Sayed Hossain",
-                color = Color.White.copy(alpha = 0.5f),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Normal,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
         }
 
         // 7. Clean Bottom Navigation Bar
@@ -184,7 +216,7 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Home Icon (Active)
+            // Home Icon
             IconButton(
                 onClick = { selectedNavIndex = 0 },
                 modifier = Modifier.size(44.dp)
@@ -199,7 +231,10 @@ fun DashboardScreen(
 
             // Files Icon
             IconButton(
-                onClick = { selectedNavIndex = 1 },
+                onClick = {
+                    selectedNavIndex = 1
+                    onRefreshFiles()
+                },
                 modifier = Modifier.size(44.dp)
             ) {
                 Icon(

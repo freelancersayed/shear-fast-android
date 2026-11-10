@@ -73,142 +73,172 @@ class SocketManager(
         port: Int = TransferConfig.DEFAULT_PORT,
         sourceUri: Uri,
         onProgress: (TransferProgress) -> Unit
+    ): Result<TransferStats> = sendOriginalFiles(
+        context = context,
+        targetHost = targetHost,
+        port = port,
+        sourceUris = listOf(sourceUri),
+        onProgress = onProgress
+    )
+
+    /**
+     * Sends original files at native quality over TCP socket with 256 KB chunk streaming.
+     * Supports single and multi-file batch transfers without UI or processor lag.
+     *
+     * @param context Application context
+     * @param targetHost IP address of the receiving peer (Local LAN or Remote Internet)
+     * @param port Destination port (defaults to 8988)
+     * @param sourceUris List of media Uris from Android picker
+     * @param onProgress Real-time progress callback invoked periodically
+     */
+    suspend fun sendOriginalFiles(
+        context: Context,
+        targetHost: String,
+        port: Int = TransferConfig.DEFAULT_PORT,
+        sourceUris: List<Uri>,
+        onProgress: (TransferProgress) -> Unit
     ): Result<TransferStats> = withContext(Dispatchers.IO) {
         isCancelled.set(false)
         val startTime = System.currentTimeMillis()
-        var inputStream: InputStream? = null
-        var socket: Socket? = null
+        var totalBytesTransferredAllFiles = 0L
 
-        try {
-            // 1. Resolve raw metadata without downscaling or stripping
-            val metadata = storageRepository.getFileMetadata(sourceUri)
-            val totalBytes = metadata.fileSize
-            val jsonHeader = metadata.toJson()
-            val headerBytes = jsonHeader.toByteArray(StandardCharsets.UTF_8)
-
-            Log.i(TAG, "Initiating zero-loss send: ${metadata.fileName} ($totalBytes bytes) to $targetHost:$port")
-
-            // 2. Open raw InputStream
-            inputStream = storageRepository.openInputStream(sourceUri)
-            val bufferedInput = BufferedInputStream(inputStream, TransferConfig.BUFFER_SIZE)
-
-            // 3. Establish optimized TCP socket
-            socket = Socket().apply {
-                tcpNoDelay = true
-                sendBufferSize = TransferConfig.TCP_BUFFER_SIZE
-                receiveBufferSize = TransferConfig.TCP_BUFFER_SIZE
-                soTimeout = TransferConfig.SOCKET_TIMEOUT_MS
-                connect(InetSocketAddress(targetHost, port), TransferConfig.SOCKET_TIMEOUT_MS)
-            }
-            activeSocket = socket
-
-            val rawOutput = socket.getOutputStream()
-            val bufferedOutput = BufferedOutputStream(rawOutput, TransferConfig.BUFFER_SIZE)
-            val dataOutput = DataOutputStream(bufferedOutput)
-            val dataInput = DataInputStream(BufferedInputStream(socket.getInputStream()))
-
-            // 4. Protocol Handshake: Magic Header + Metadata Payload
-            dataOutput.writeInt(TransferConfig.PROTOCOL_MAGIC_HEADER)
-            dataOutput.writeInt(headerBytes.size)
-            dataOutput.write(headerBytes)
-            dataOutput.flush()
-
-            // 5. Wait for receiver ACK
-            val ack = dataInput.readByte()
-            if (ack != TransferConfig.ACK_BYTE) {
-                throw IllegalStateException("Invalid ACK received from target: $ack")
+        for ((index, uri) in sourceUris.withIndex()) {
+            if (isCancelled.get()) {
+                return@withContext Result.failure(InterruptedException("Transfer cancelled by user"))
             }
 
-            // 6. Zero-Loss Raw Byte Streaming using strict 64KB buffer
-            val buffer = ByteArray(TransferConfig.BUFFER_SIZE)
-            var bytesTransferred = 0L
-            var lastSampleTime = System.currentTimeMillis()
-            var bytesSinceSample = 0L
-            var currentSpeedMBps = 0.0
+            var inputStream: InputStream? = null
+            var socket: Socket? = null
 
-            while (bytesTransferred < totalBytes || totalBytes <= 0) {
-                currentCoroutineContext().ensureActive()
-                if (isCancelled.get()) {
-                    throw InterruptedException("Transfer cancelled by user")
+            try {
+                val metadata = storageRepository.getFileMetadata(uri)
+                val totalBytes = metadata.fileSize
+                val jsonHeader = metadata.toJson()
+                val headerBytes = jsonHeader.toByteArray(StandardCharsets.UTF_8)
+
+                Log.i(TAG, "Sending [${index + 1}/${sourceUris.size}]: ${metadata.fileName} ($totalBytes bytes) to $targetHost:$port")
+
+                inputStream = storageRepository.openInputStream(uri)
+                val bufferedInput = BufferedInputStream(inputStream, TransferConfig.BUFFER_SIZE)
+
+                socket = Socket().apply {
+                    tcpNoDelay = true
+                    sendBufferSize = TransferConfig.TCP_BUFFER_SIZE
+                    receiveBufferSize = TransferConfig.TCP_BUFFER_SIZE
+                    soTimeout = TransferConfig.SOCKET_TIMEOUT_MS
+                    connect(InetSocketAddress(targetHost, port), TransferConfig.SOCKET_TIMEOUT_MS)
+                }
+                activeSocket = socket
+
+                val rawOutput = socket.getOutputStream()
+                val bufferedOutput = BufferedOutputStream(rawOutput, TransferConfig.BUFFER_SIZE)
+                val dataOutput = DataOutputStream(bufferedOutput)
+                val dataInput = DataInputStream(BufferedInputStream(socket.getInputStream()))
+
+                // Protocol Handshake
+                dataOutput.writeInt(TransferConfig.PROTOCOL_MAGIC_HEADER)
+                dataOutput.writeInt(headerBytes.size)
+                dataOutput.write(headerBytes)
+                dataOutput.flush()
+
+                // Wait for receiver ACK
+                val ack = dataInput.readByte()
+                if (ack != TransferConfig.ACK_BYTE) {
+                    throw IllegalStateException("Invalid ACK received from target: $ack")
                 }
 
-                val bytesToRead = if (totalBytes > 0) {
-                    minOf(buffer.size.toLong(), totalBytes - bytesTransferred).toInt()
-                } else {
-                    buffer.size
-                }
+                // High-performance 256 KB streaming
+                val buffer = ByteArray(TransferConfig.BUFFER_SIZE)
+                var fileBytesTransferred = 0L
+                var lastSampleTime = System.currentTimeMillis()
+                var bytesSinceSample = 0L
+                var currentSpeedMBps = 0.0
 
-                val bytesRead = bufferedInput.read(buffer, 0, bytesToRead)
-                if (bytesRead == -1) break
+                while (fileBytesTransferred < totalBytes || totalBytes <= 0) {
+                    currentCoroutineContext().ensureActive()
+                    if (isCancelled.get()) {
+                        throw InterruptedException("Transfer cancelled by user")
+                    }
 
-                bufferedOutput.write(buffer, 0, bytesRead)
-                bytesTransferred += bytesRead
-                bytesSinceSample += bytesRead
+                    val bytesToRead = if (totalBytes > 0) {
+                        minOf(buffer.size.toLong(), totalBytes - fileBytesTransferred).toInt()
+                    } else {
+                        buffer.size
+                    }
 
-                // Real-time metrics sampling
-                val now = System.currentTimeMillis()
-                val elapsedSinceSample = now - lastSampleTime
-                if (elapsedSinceSample >= TransferConfig.METRICS_INTERVAL_MS) {
-                    val instantSpeed = (bytesSinceSample.toDouble() / (1024.0 * 1024.0)) / (elapsedSinceSample.toDouble() / 1000.0)
-                    // Smooth speed via exponential moving average (0.3 weight to instant)
-                    currentSpeedMBps = if (currentSpeedMBps <= 0.0) instantSpeed else (currentSpeedMBps * 0.7) + (instantSpeed * 0.3)
+                    val bytesRead = bufferedInput.read(buffer, 0, bytesToRead)
+                    if (bytesRead == -1) break
 
-                    val remainingBytes = if (totalBytes > bytesTransferred) totalBytes - bytesTransferred else 0L
-                    val etaSeconds = if (currentSpeedMBps > 0.01) {
-                        (remainingBytes.toDouble() / (currentSpeedMBps * 1024.0 * 1024.0)).toLong()
-                    } else 0L
+                    bufferedOutput.write(buffer, 0, bytesRead)
+                    fileBytesTransferred += bytesRead
+                    bytesSinceSample += bytesRead
 
-                    onProgress(
-                        TransferProgress(
-                            bytesTransferred = bytesTransferred,
-                            totalBytes = totalBytes,
-                            speedMBps = currentSpeedMBps,
-                            etaSeconds = etaSeconds,
-                            fileName = metadata.fileName
+                    val now = System.currentTimeMillis()
+                    val elapsedSinceSample = now - lastSampleTime
+                    if (elapsedSinceSample >= TransferConfig.METRICS_INTERVAL_MS) {
+                        val instantSpeed = (bytesSinceSample.toDouble() / (1024.0 * 1024.0)) / (elapsedSinceSample.toDouble() / 1000.0)
+                        currentSpeedMBps = if (currentSpeedMBps <= 0.0) instantSpeed else (currentSpeedMBps * 0.7) + (instantSpeed * 0.3)
+
+                        val remainingBytes = if (totalBytes > fileBytesTransferred) totalBytes - fileBytesTransferred else 0L
+                        val etaSeconds = if (currentSpeedMBps > 0.01) {
+                            (remainingBytes.toDouble() / (currentSpeedMBps * 1024.0 * 1024.0)).toLong()
+                        } else 0L
+
+                        val prefix = if (sourceUris.size > 1) "(${index + 1}/${sourceUris.size}) " else ""
+
+                        onProgress(
+                            TransferProgress(
+                                bytesTransferred = fileBytesTransferred,
+                                totalBytes = totalBytes,
+                                speedMBps = currentSpeedMBps,
+                                etaSeconds = etaSeconds,
+                                fileName = "$prefix${metadata.fileName}"
+                            )
                         )
-                    )
 
-                    lastSampleTime = now
-                    bytesSinceSample = 0L
+                        lastSampleTime = now
+                        bytesSinceSample = 0L
+                    }
                 }
+
+                bufferedOutput.flush()
+                totalBytesTransferredAllFiles += fileBytesTransferred
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Transmission failed on file [${index + 1}]: ${e.message}", e)
+                return@withContext Result.failure(e)
+            } finally {
+                try { inputStream?.close() } catch (ignored: Exception) {}
+                try { socket?.close() } catch (ignored: Exception) {}
+                activeSocket = null
             }
-
-            // Flush all residual frames
-            bufferedOutput.flush()
-
-            val totalElapsedSec = (System.currentTimeMillis() - startTime).toDouble() / 1000.0
-            val avgSpeedMBps = if (totalElapsedSec > 0) {
-                (bytesTransferred.toDouble() / (1024.0 * 1024.0)) / totalElapsedSec
-            } else 0.0
-
-            onProgress(
-                TransferProgress(
-                    bytesTransferred = bytesTransferred,
-                    totalBytes = totalBytes,
-                    speedMBps = avgSpeedMBps,
-                    etaSeconds = 0L,
-                    fileName = metadata.fileName
-                )
-            )
-
-            Log.i(TAG, "Send complete: $bytesTransferred bytes in $totalElapsedSec s (Avg: $avgSpeedMBps MB/s)")
-
-            Result.success(
-                TransferStats(
-                    fileName = metadata.fileName,
-                    totalBytes = bytesTransferred,
-                    durationSeconds = totalElapsedSec,
-                    averageSpeedMBps = avgSpeedMBps
-                )
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Transmission failed: ${e.message}", e)
-            Result.failure(e)
-        } finally {
-            try { inputStream?.close() } catch (ignored: Exception) {}
-            try { socket?.close() } catch (ignored: Exception) {}
-            activeSocket = null
         }
+
+        val totalElapsedSec = ((System.currentTimeMillis() - startTime).toDouble() / 1000.0).coerceAtLeast(0.1)
+        val avgSpeedMBps = (totalBytesTransferredAllFiles.toDouble() / (1024.0 * 1024.0)) / totalElapsedSec
+
+        val summaryName = if (sourceUris.size > 1) "${sourceUris.size} Files" else "File"
+
+        onProgress(
+            TransferProgress(
+                bytesTransferred = totalBytesTransferredAllFiles,
+                totalBytes = totalBytesTransferredAllFiles,
+                speedMBps = avgSpeedMBps,
+                etaSeconds = 0L,
+                fileName = summaryName
+            )
+        )
+
+        Log.i(TAG, "All files sent successfully: $totalBytesTransferredAllFiles bytes in $totalElapsedSec s ($avgSpeedMBps MB/s)")
+
+        Result.success(
+            TransferStats(
+                fileName = summaryName,
+                totalBytes = totalBytesTransferredAllFiles,
+                durationSeconds = totalElapsedSec,
+                averageSpeedMBps = avgSpeedMBps
+            )
+        )
     }
 
     /**
@@ -253,9 +283,9 @@ class SocketManager(
             val dataInput = DataInputStream(bufferedInput)
             val dataOutput = DataOutputStream(BufferedOutputStream(clientSocket.getOutputStream()))
 
-            // 2. Validate Magic Header
+            // 2. Validate Magic Header (BondhuShare or legacy)
             val magic = dataInput.readInt()
-            if (magic != TransferConfig.PROTOCOL_MAGIC_HEADER) {
+            if (magic != TransferConfig.PROTOCOL_MAGIC_HEADER && magic != TransferConfig.LEGACY_MAGIC_HEADER) {
                 throw IllegalStateException("Invalid protocol magic header: 0x${Integer.toHexString(magic)}")
             }
 
