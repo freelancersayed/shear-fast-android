@@ -12,6 +12,7 @@ import com.flashshare.p2p.data.model.TransferProgress
 import com.flashshare.p2p.data.repository.FileStorageRepository
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.AdvertisingOptions
+import com.google.android.gms.nearby.connection.BandwidthInfo
 import com.google.android.gms.nearby.connection.ConnectionInfo
 import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback
 import com.google.android.gms.nearby.connection.ConnectionResolution
@@ -155,9 +156,9 @@ class NearbyConnectionEngine(
             }
         }
 
-        override fun onBandwidthChanged(endpointId: String, quality: Int) {
-            Log.i(TAG, "Bandwidth upgraded for $endpointId: Quality=$quality (HIGH=3, MEDIUM=2, LOW=1)")
-            if (quality >= 2) {
+        override fun onBandwidthChanged(endpointId: String, bandwidthInfo: BandwidthInfo) {
+            Log.i(TAG, "Bandwidth upgraded for $endpointId: Quality=${bandwidthInfo.quality} (HIGH=3, MEDIUM=2, LOW=1)")
+            if (bandwidthInfo.quality >= 2) {
                 // High-Speed Wi-Fi connection established! Transmit payload immediately!
                 bandwidthUpgradeTimeoutJob?.cancel()
                 startTransmitIfReady(endpointId, "High-Speed Wi-Fi")
