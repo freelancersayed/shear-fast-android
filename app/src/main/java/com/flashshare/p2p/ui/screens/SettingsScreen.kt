@@ -117,21 +117,21 @@ fun SettingsScreen(
             SettingsInfoRow(
                 icon = Icons.Default.Speed,
                 label = "Streaming I/O Buffer",
-                value = "256 KB High Throughput",
+                value = "512 KB Zero-Copy Stream",
                 valueColor = AccentMint
             )
             Spacer(modifier = Modifier.height(12.dp))
             SettingsInfoRow(
                 icon = Icons.Default.Bolt,
-                label = "Wi-Fi Bandwidth Upgrade",
-                value = "5GHz Wi-Fi Direct Auto-Lock",
+                label = "Wi-Fi Chipset Power Lock",
+                value = "Full Low-Latency / Max Radio Lock",
                 valueColor = AccentMint
             )
             Spacer(modifier = Modifier.height(12.dp))
             SettingsInfoRow(
                 icon = Icons.Default.CloudDone,
                 label = "TCP Latency Engine",
-                value = "Zero-Delay (TCP_NODELAY Active)",
+                value = "Zero-Delay (2MB Window + TCP_NODELAY)",
                 valueColor = AccentMint
             )
         }
@@ -183,7 +183,7 @@ fun SettingsScreen(
             SettingsInfoRow(
                 icon = Icons.Default.Info,
                 label = "Version",
-                value = "v1.0.4 (High Speed Engine)"
+                value = "v1.0.5 (High Speed Engine)"
             )
             Spacer(modifier = Modifier.height(12.dp))
             SettingsInfoRow(

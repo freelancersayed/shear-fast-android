@@ -11,3 +11,4 @@ local.properties
 *.apk
 *.aab
 *.class
+received_from_phone/

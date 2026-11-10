@@ -7,9 +7,9 @@ package com.flashshare.p2p.engine.socket
 object TransferConfig {
     /**
      * Chunk buffer size optimized for Wi-Fi Direct, Local Hotspot, and LAN/Internet P2P links.
-     * High-speed 256 KB buffer per read/write cycle eliminates processor thrashing.
+     * High-speed 512 KB buffer per read/write cycle eliminates processor thrashing and maximizes throughput.
      */
-    const val BUFFER_SIZE: Int = 1024 * 256
+    const val BUFFER_SIZE: Int = 1024 * 512
 
     /**
      * Default TCP Socket port for BondhuShare P2P data stream.
@@ -22,9 +22,9 @@ object TransferConfig {
     const val SOCKET_TIMEOUT_MS: Int = 45000
 
     /**
-     * Low-level TCP Socket send/receive buffer size for maximizing bandwidth (1 MB).
+     * Low-level TCP Socket send/receive buffer size for maximizing bandwidth (2 MB).
      */
-    const val TCP_BUFFER_SIZE: Int = 1024 * 1024
+    const val TCP_BUFFER_SIZE: Int = 1024 * 1024 * 2
 
     /**
      * Protocol magic header bytes: 'BNDU' (0x42, 0x4E, 0x44, 0x55) for BondhuShare.
