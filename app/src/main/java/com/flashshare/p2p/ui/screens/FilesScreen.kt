@@ -1,7 +1,7 @@
 package com.flashshare.p2p.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,18 +37,26 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flashshare.p2p.data.repository.ReceivedFileInfo
-import com.flashshare.p2p.ui.theme.ButtonAquaGreen
-import com.flashshare.p2p.ui.theme.CorporateBlue
+import com.flashshare.p2p.ui.theme.AccentAzureLight
+import com.flashshare.p2p.ui.theme.AccentMint
+import com.flashshare.p2p.ui.theme.AppBackground
+import com.flashshare.p2p.ui.theme.CardBorder
+import com.flashshare.p2p.ui.theme.SurfaceElevated
+import com.flashshare.p2p.ui.theme.TextBody
+import com.flashshare.p2p.ui.theme.TextMuted
+import com.flashshare.p2p.ui.theme.TextTitle
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
- * FilesScreen - Displays all files received by BondhuShare in 'Downloads/BondhuShare'.
+ * FilesScreen - Displays all files received by BondhuShare in 'Download/BondhuShare'.
+ * Beautiful, cohesive Midnight Navy + Mint Emerald theme.
  * Allows users to view details (name, size, date) and tap to directly play/open them.
  */
 @Composable
@@ -61,10 +69,10 @@ fun FilesScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(CorporateBlue)
+            .background(AppBackground)
             .padding(horizontal = 20.dp)
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
         // Header Row
         Row(
@@ -75,28 +83,34 @@ fun FilesScreen(
             Column {
                 Text(
                     text = "Received Files",
-                    color = Color.White,
+                    color = TextTitle,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "Saved in: Download/BondhuShare",
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = TextBody,
                     fontSize = 13.sp
                 )
             }
 
-            IconButton(
-                onClick = onRefresh,
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.15f))
+            Surface(
+                shape = CircleShape,
+                color = SurfaceElevated,
+                border = BorderStroke(1.dp, CardBorder)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Refresh Files",
-                    tint = Color.White
-                )
+                IconButton(
+                    onClick = onRefresh,
+                    modifier = Modifier.size(42.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh Files",
+                        tint = AccentMint,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
 
@@ -110,43 +124,52 @@ fun FilesScreen(
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(32.dp)
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = SurfaceElevated,
+                    border = BorderStroke(1.dp, CardBorder),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(32.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Folder,
-                            contentDescription = null,
-                            tint = ButtonAquaGreen,
-                            modifier = Modifier.size(44.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(76.dp)
+                                .clip(CircleShape)
+                                .background(AppBackground),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Folder,
+                                contentDescription = null,
+                                tint = AccentMint,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "No Received Files Yet",
+                            color = TextTitle,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Files sent to you will appear here and are stored in Download/BondhuShare at 100% original quality.",
+                            color = TextBody,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 19.sp
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text(
-                        text = "No Received Files Yet",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "Files sent to you will appear here and be stored in Download/BondhuShare.",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 14.sp,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        lineHeight = 20.sp
-                    )
                 }
             }
         } else {
@@ -180,8 +203,9 @@ private fun ReceivedFileItem(
 
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        color = Color.White.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(14.dp),
+        color = SurfaceElevated,
+        border = BorderStroke(1.dp, CardBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -194,15 +218,15 @@ private fun ReceivedFileItem(
             Box(
                 modifier = Modifier
                     .size(46.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(iconBg),
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(iconBg.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(26.dp)
+                    tint = iconBg,
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
@@ -212,7 +236,7 @@ private fun ReceivedFileItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = file.name,
-                    color = Color.White,
+                    color = TextTitle,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -224,13 +248,13 @@ private fun ReceivedFileItem(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = formattedSize,
-                        color = ButtonAquaGreen,
+                        color = AccentMint,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.SemiBold
                     )
                     Text(
                         text = " • $formattedDate",
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = TextMuted,
                         fontSize = 12.sp
                     )
                 }
@@ -239,12 +263,20 @@ private fun ReceivedFileItem(
             Spacer(modifier = Modifier.width(8.dp))
 
             // Play / Open Icon
-            Icon(
-                imageVector = Icons.Default.PlayCircle,
-                contentDescription = "Open File",
-                tint = Color.White.copy(alpha = 0.8f),
-                modifier = Modifier.size(28.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(AppBackground),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayCircle,
+                    contentDescription = "Open File",
+                    tint = AccentAzureLight,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
         }
     }
 }
@@ -253,19 +285,19 @@ private fun getFileTypeIconAndColor(mimeType: String, fileName: String): Pair<Im
     val lower = fileName.lowercase(Locale.ROOT)
     return when {
         mimeType.startsWith("image/") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") || lower.endsWith(".webp") -> {
-            Pair(Icons.Default.Image, Color(0xFF26A69A))
+            Pair(Icons.Default.Image, Color(0xFF14B8A6)) // Teal
         }
         mimeType.startsWith("video/") || lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".mov") || lower.endsWith(".avi") -> {
-            Pair(Icons.Default.VideoFile, Color(0xFFE53935))
+            Pair(Icons.Default.VideoFile, Color(0xFFF43F5E)) // Rose
         }
         mimeType.startsWith("audio/") || lower.endsWith(".mp3") || lower.endsWith(".m4a") || lower.endsWith(".wav") || lower.endsWith(".aac") -> {
-            Pair(Icons.Default.AudioFile, Color(0xFF8E24AA))
+            Pair(Icons.Default.AudioFile, Color(0xFFA855F7)) // Purple
         }
         lower.endsWith(".pdf") || mimeType == "application/pdf" || lower.endsWith(".doc") || lower.endsWith(".docx") || lower.endsWith(".txt") -> {
-            Pair(Icons.Default.Description, Color(0xFF1E88E5))
+            Pair(Icons.Default.Description, Color(0xFF38BDF8)) // Sky
         }
         else -> {
-            Pair(Icons.Default.InsertDriveFile, Color(0xFF546E7A))
+            Pair(Icons.Default.InsertDriveFile, Color(0xFF94A3B8)) // Slate
         }
     }
 }

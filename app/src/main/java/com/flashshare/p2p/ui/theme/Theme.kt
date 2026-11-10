@@ -10,17 +10,17 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = BrandBlue,
-    onPrimary = BackgroundDark,
-    primaryContainer = CardBackground,
+    primary = AccentMint,
+    onPrimary = AccentMintText,
+    primaryContainer = SurfaceElevated,
     onPrimaryContainer = TextTitle,
-    secondary = BrandBlueLight,
-    onSecondary = BackgroundDark,
-    background = BackgroundDark,
+    secondary = AccentAzure,
+    onSecondary = TextTitle,
+    background = AppBackground,
     onBackground = TextTitle,
-    surface = SurfaceDark,
+    surface = SurfaceElevated,
     onSurface = TextTitle,
-    surfaceVariant = CardBackground,
+    surfaceVariant = SurfaceElevated,
     onSurfaceVariant = TextBody,
     error = ErrorRose,
     onError = TextTitle
@@ -36,8 +36,8 @@ fun FlashShareTheme(
         SideEffect {
             val window = (view.context as? Activity)?.window
             if (window != null) {
-                window.statusBarColor = BackgroundDark.toArgb()
-                window.navigationBarColor = BackgroundDark.toArgb()
+                window.statusBarColor = AppBackground.toArgb()
+                window.navigationBarColor = BottomBarBackground.toArgb()
                 WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
                 WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
             }

@@ -37,12 +37,14 @@ import com.flashshare.p2p.data.model.TransferProgress
 import com.flashshare.p2p.data.model.TransferState
 import com.flashshare.p2p.ui.components.HighTechSpeedGauge
 import com.flashshare.p2p.ui.components.LinearTransferProgress
-import com.flashshare.p2p.ui.theme.BackgroundDark
-import com.flashshare.p2p.ui.theme.BrandBlue
+import com.flashshare.p2p.ui.theme.AccentMint
+import com.flashshare.p2p.ui.theme.AccentMintText
+import com.flashshare.p2p.ui.theme.AppBackground
 import com.flashshare.p2p.ui.theme.CardBackground
 import com.flashshare.p2p.ui.theme.CardBorder
 import com.flashshare.p2p.ui.theme.ErrorRose
 import com.flashshare.p2p.ui.theme.SuccessEmerald
+import com.flashshare.p2p.ui.theme.SurfaceElevated
 import com.flashshare.p2p.ui.theme.TextBody
 import com.flashshare.p2p.ui.theme.TextMuted
 import com.flashshare.p2p.ui.theme.TextTitle
@@ -61,7 +63,7 @@ fun TransferScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(BackgroundDark)
+            .background(AppBackground)
             .padding(horizontal = 20.dp, vertical = 24.dp)
     ) {
         when (state) {
@@ -217,7 +219,7 @@ private fun CompletedContent(
             DetailRow(label = "Time taken", value = String.format(Locale.US, "%.1f s", completed.durationSeconds))
 
             if (!completed.isSender) {
-                DetailRow(label = "Saved to", value = "Downloads/FlashShare")
+                DetailRow(label = "Saved to", value = "Download/BondhuShare")
             }
         }
 
@@ -227,17 +229,17 @@ private fun CompletedContent(
             onClick = onDone,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
-            shape = RoundedCornerShape(12.dp),
+                .height(50.dp),
+            shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = BrandBlue,
-                contentColor = TextTitle
+                containerColor = AccentMint,
+                contentColor = AccentMintText
             )
         ) {
             Text(
                 text = stringResource(R.string.done),
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp
             )
         }
     }

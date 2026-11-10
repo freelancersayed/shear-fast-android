@@ -44,11 +44,17 @@ import com.flashshare.p2p.ui.components.PermissionRationaleDialog
 import com.flashshare.p2p.ui.screens.DashboardScreen
 import com.flashshare.p2p.ui.screens.DiscoveryScreen
 import com.flashshare.p2p.ui.screens.TransferScreen
+import com.flashshare.p2p.ui.theme.AccentAzure
+import com.flashshare.p2p.ui.theme.AccentMint
+import com.flashshare.p2p.ui.theme.AccentMintText
+import com.flashshare.p2p.ui.theme.AppBackground
 import com.flashshare.p2p.ui.theme.BackgroundDark
-import com.flashshare.p2p.ui.theme.ButtonAquaGreen
-import com.flashshare.p2p.ui.theme.ButtonSlateGrey
-import com.flashshare.p2p.ui.theme.CorporateBlue
+import com.flashshare.p2p.ui.theme.CardBorder
 import com.flashshare.p2p.ui.theme.FlashShareTheme
+import com.flashshare.p2p.ui.theme.SurfaceElevated
+import com.flashshare.p2p.ui.theme.TextBody
+import com.flashshare.p2p.ui.theme.TextMuted
+import com.flashshare.p2p.ui.theme.TextTitle
 import com.flashshare.p2p.ui.viewmodel.MainViewModel
 
 /**
@@ -139,7 +145,7 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = if (uiState is TransferState.Idle) CorporateBlue else BackgroundDark,
+        containerColor = AppBackground,
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         when (val state = uiState) {
@@ -265,34 +271,42 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
                                 )
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = ButtonAquaGreen),
-                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AccentMint,
+                                contentColor = AccentMintText
+                            ),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp)
+                                .height(50.dp)
                         ) {
                             Text(
                                 text = "Photos & Videos (Multiple)",
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         Button(
                             onClick = {
                                 showFileTypePicker = false
                                 allFilesPickerLauncher.launch(arrayOf("*/*"))
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = ButtonSlateGrey),
-                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AccentAzure,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp)
+                                .height(50.dp)
                         ) {
                             Text(
-                                text = "All Files (Apps, Docs, Music)",
-                                fontWeight = FontWeight.SemiBold
+                                text = "All Files (Apps, Docs, Music, APK)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
                             )
                         }
                     }
@@ -300,10 +314,10 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
                 confirmButton = {},
                 dismissButton = {
                     TextButton(onClick = { showFileTypePicker = false }) {
-                        Text("Cancel", color = Color.White.copy(alpha = 0.7f))
+                        Text("Cancel", color = TextMuted)
                     }
                 },
-                containerColor = Color(0xFF0D3B75)
+                containerColor = SurfaceElevated
             )
         }
 

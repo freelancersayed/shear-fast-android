@@ -32,7 +32,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flashshare.p2p.data.model.TransferProgress
-import com.flashshare.p2p.ui.theme.BrandBlue
+import com.flashshare.p2p.ui.theme.AccentAzureLight
+import com.flashshare.p2p.ui.theme.AccentMint
 import com.flashshare.p2p.ui.theme.CardBackground
 import com.flashshare.p2p.ui.theme.CardBorder
 import com.flashshare.p2p.ui.theme.TextBody
@@ -87,7 +88,7 @@ fun LinearTransferProgress(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = BrandBlue,
+                    tint = AccentAzureLight,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -114,7 +115,7 @@ fun LinearTransferProgress(
             // Percentage badge
             Text(
                 text = "${progress.percentage}%",
-                color = TextTitle,
+                color = AccentMint,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -135,7 +136,7 @@ fun LinearTransferProgress(
                     .fillMaxWidth(animatedFraction)
                     .fillMaxHeight()
                     .clip(CircleShape)
-                    .background(BrandBlue)
+                    .background(AccentMint)
             )
         }
     }

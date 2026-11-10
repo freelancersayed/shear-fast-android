@@ -1,8 +1,8 @@
 package com.flashshare.p2p.ui.screens
 
 import android.os.Build
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.FolderSpecial
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -48,12 +47,20 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.flashshare.p2p.ui.theme.ButtonAquaGreen
-import com.flashshare.p2p.ui.theme.CorporateBlue
+import com.flashshare.p2p.ui.theme.AccentAzureLight
+import com.flashshare.p2p.ui.theme.AccentMint
+import com.flashshare.p2p.ui.theme.AccentMintText
+import com.flashshare.p2p.ui.theme.AppBackground
+import com.flashshare.p2p.ui.theme.CardBorder
+import com.flashshare.p2p.ui.theme.SurfaceElevated
+import com.flashshare.p2p.ui.theme.TextBody
+import com.flashshare.p2p.ui.theme.TextMuted
+import com.flashshare.p2p.ui.theme.TextTitle
 
 /**
  * SettingsScreen - Displays application configuration, hardware speed optimizations,
  * zero-cost Remote P2P transfer tools, and copyright info.
+ * Cohesive Midnight Navy + Mint Emerald theme.
  */
 @Composable
 fun SettingsScreen(
@@ -66,22 +73,23 @@ fun SettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(CorporateBlue)
+            .background(AppBackground)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
         // Title
         Text(
             text = "Settings & Optimizer",
-            color = Color.White,
+            color = TextTitle,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold
         )
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = "High-speed zero-server transfer configuration",
-            color = Color.White.copy(alpha = 0.7f),
+            color = TextBody,
             fontSize = 13.sp
         )
 
@@ -110,21 +118,21 @@ fun SettingsScreen(
                 icon = Icons.Default.Speed,
                 label = "Streaming I/O Buffer",
                 value = "256 KB High Throughput",
-                valueColor = ButtonAquaGreen
+                valueColor = AccentMint
             )
             Spacer(modifier = Modifier.height(12.dp))
             SettingsInfoRow(
                 icon = Icons.Default.Bolt,
                 label = "Wi-Fi Bandwidth Upgrade",
                 value = "5GHz Wi-Fi Direct Auto-Lock",
-                valueColor = ButtonAquaGreen
+                valueColor = AccentMint
             )
             Spacer(modifier = Modifier.height(12.dp))
             SettingsInfoRow(
                 icon = Icons.Default.CloudDone,
                 label = "TCP Latency Engine",
                 value = "Zero-Delay (TCP_NODELAY Active)",
-                valueColor = ButtonAquaGreen
+                valueColor = AccentMint
             )
         }
 
@@ -134,9 +142,9 @@ fun SettingsScreen(
         SettingsCard(title = "Free Remote Transfer (Two Cities)") {
             Text(
                 text = "Transfer files to a friend in another city or on the same Wi-Fi router directly via IP without any paid cloud servers.",
-                color = Color.White.copy(alpha = 0.8f),
+                color = TextBody,
                 fontSize = 13.sp,
-                lineHeight = 18.sp
+                lineHeight = 19.sp
             )
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -144,21 +152,26 @@ fun SettingsScreen(
             Button(
                 onClick = { showDirectIpDialog = true },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = ButtonAquaGreen,
-                    contentColor = Color.White
+                    containerColor = AccentMint,
+                    contentColor = AccentMintText
                 ),
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Language,
                     contentDescription = null,
+                    tint = AccentMintText,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Direct IP Send (Remote P2P)",
-                    fontWeight = FontWeight.SemiBold
+                    color = AccentMintText,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
                 )
             }
         }
@@ -170,7 +183,7 @@ fun SettingsScreen(
             SettingsInfoRow(
                 icon = Icons.Default.Info,
                 label = "Version",
-                value = "v1.0.3 (High Speed Engine)"
+                value = "v1.0.4 (High Speed Engine)"
             )
             Spacer(modifier = Modifier.height(12.dp))
             SettingsInfoRow(
@@ -181,7 +194,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "Copyright by: Sayed Hossain",
-                color = Color.White.copy(alpha = 0.6f),
+                color = TextMuted,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -197,7 +210,7 @@ fun SettingsScreen(
             title = {
                 Text(
                     text = "Send via Direct IP",
-                    color = Color.White,
+                    color = TextTitle,
                     fontWeight = FontWeight.Bold
                 )
             },
@@ -205,20 +218,22 @@ fun SettingsScreen(
                 Column {
                     Text(
                         text = "Enter your friend's Wi-Fi / Public IP address. Ensure their app is on 'Receive Fast'.",
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = 13.sp
+                        color = TextBody,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     OutlinedTextField(
                         value = targetIpInput,
                         onValueChange = { targetIpInput = it },
-                        placeholder = { Text("e.g. 192.168.1.15", color = Color.White.copy(alpha = 0.4f)) },
+                        placeholder = { Text("e.g. 192.168.1.15", color = TextMuted) },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = ButtonAquaGreen,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedBorderColor = AccentMint,
+                            unfocusedBorderColor = CardBorder,
+                            focusedTextColor = TextTitle,
+                            unfocusedTextColor = TextTitle,
+                            cursorColor = AccentMint
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -232,17 +247,21 @@ fun SettingsScreen(
                             onSendDirectIp(targetIpInput.trim())
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = ButtonAquaGreen)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentMint,
+                        contentColor = AccentMintText
+                    ),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Connect & Send")
+                    Text("Connect & Send", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDirectIpDialog = false }) {
-                    Text("Cancel", color = Color.White.copy(alpha = 0.7f))
+                    Text("Cancel", color = TextMuted)
                 }
             },
-            containerColor = Color(0xFF0D3B75)
+            containerColor = SurfaceElevated
         )
     }
 }
@@ -253,14 +272,15 @@ private fun SettingsCard(
     content: @Composable () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = Color.White.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(16.dp),
+        color = SurfaceElevated,
+        border = BorderStroke(1.dp, CardBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(18.dp)) {
             Text(
                 text = title,
-                color = Color.White,
+                color = TextTitle,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -275,7 +295,7 @@ private fun SettingsInfoRow(
     icon: ImageVector,
     label: String,
     value: String,
-    valueColor: Color = Color.White.copy(alpha = 0.9f)
+    valueColor: Color = TextTitle
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -283,15 +303,15 @@ private fun SettingsInfoRow(
     ) {
         Box(
             modifier = Modifier
-                .size(34.dp)
+                .size(36.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.12f)),
+                .background(AppBackground),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color.White,
+                tint = AccentAzureLight,
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -301,7 +321,7 @@ private fun SettingsInfoRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
-                color = Color.White.copy(alpha = 0.6f),
+                color = TextMuted,
                 fontSize = 12.sp
             )
             Text(

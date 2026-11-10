@@ -12,7 +12,7 @@
     
     <!-- Permissions -->
     <string name="permission_required_title">Permissions required</string>
-    <string name="permission_required_desc">FlashShare uses local Wi-Fi and Bluetooth to find nearby devices and transfer files directly without using mobile data.</string>
+    <string name="permission_required_desc">BondhuShare uses local Wi-Fi and Bluetooth to find nearby devices and transfer files directly without using mobile data.</string>
     <string name="grant_permissions">Continue</string>
     <string name="permission_cancel">Not now</string>
     
@@ -21,7 +21,7 @@
     <string name="ready_to_receive">Ready to receive</string>
     <string name="waiting_for_sender">Keep this screen open while transferring</string>
     <string name="nearby_devices">Nearby devices</string>
-    <string name="no_devices_found">Make sure the other device is nearby and has FlashShare open.</string>
+    <string name="no_devices_found">Make sure the other device is nearby and has BondhuShare open.</string>
     
     <!-- Transferring -->
     <string name="transferring_file">Sending file…</string>
@@ -29,7 +29,7 @@
     <string name="cancel_transfer">Cancel</string>
     <string name="transfer_complete">Transfer complete</string>
     <string name="transfer_failed">Transfer couldn\'t be completed</string>
-    <string name="saved_to_downloads">Saved in Downloads/FlashShare</string>
+    <string name="saved_to_downloads">Saved in Download/BondhuShare</string>
     <string name="done">Done</string>
     <string name="try_again">Try again</string>
 </resources>

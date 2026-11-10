@@ -30,7 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flashshare.p2p.R
-import com.flashshare.p2p.ui.theme.BrandBlue
+import com.flashshare.p2p.ui.theme.AccentAzureLight
+import com.flashshare.p2p.ui.theme.AccentMint
+import com.flashshare.p2p.ui.theme.AccentMintText
 import com.flashshare.p2p.ui.theme.CardBackground
 import com.flashshare.p2p.ui.theme.CardBorder
 import com.flashshare.p2p.ui.theme.TextBody
@@ -51,7 +53,7 @@ fun PermissionRationaleDialog(
                 Icon(
                     imageVector = Icons.Outlined.Security,
                     contentDescription = null,
-                    tint = BrandBlue,
+                    tint = AccentMint,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
@@ -83,7 +85,7 @@ fun PermissionRationaleDialog(
                 PermissionDetailRow(
                     icon = Icons.Default.Folder,
                     title = "Storage access",
-                    description = "Required to save received files into your Downloads/FlashShare folder."
+                    description = "Required to save received files into your Download/BondhuShare folder."
                 )
             }
         },
@@ -91,14 +93,14 @@ fun PermissionRationaleDialog(
             Button(
                 onClick = onConfirm,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = BrandBlue,
-                    contentColor = TextTitle
+                    containerColor = AccentMint,
+                    contentColor = AccentMintText
                 ),
                 shape = RoundedCornerShape(10.dp)
             ) {
                 Text(
                     text = stringResource(R.string.grant_permissions),
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
                 )
             }
         },
@@ -130,7 +132,7 @@ private fun PermissionDetailRow(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = BrandBlue,
+            tint = AccentAzureLight,
             modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.width(10.dp))

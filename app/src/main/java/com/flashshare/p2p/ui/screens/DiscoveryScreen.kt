@@ -1,5 +1,6 @@
 package com.flashshare.p2p.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,18 +50,21 @@ import com.flashshare.p2p.R
 import com.flashshare.p2p.data.model.DiscoveredPeer
 import com.flashshare.p2p.data.model.PeerRole
 import com.flashshare.p2p.ui.components.PeerRadarComponent
-import com.flashshare.p2p.ui.theme.BackgroundDark
-import com.flashshare.p2p.ui.theme.BrandBlue
-import com.flashshare.p2p.ui.theme.ButtonAquaGreen
-import com.flashshare.p2p.ui.theme.CardBackground
+import com.flashshare.p2p.ui.theme.AccentAzure
+import com.flashshare.p2p.ui.theme.AccentAzureLight
+import com.flashshare.p2p.ui.theme.AccentMint
+import com.flashshare.p2p.ui.theme.AccentMintText
+import com.flashshare.p2p.ui.theme.AppBackground
 import com.flashshare.p2p.ui.theme.CardBorder
 import com.flashshare.p2p.ui.theme.SuccessEmerald
+import com.flashshare.p2p.ui.theme.SurfaceElevated
 import com.flashshare.p2p.ui.theme.TextBody
 import com.flashshare.p2p.ui.theme.TextMuted
 import com.flashshare.p2p.ui.theme.TextTitle
 
 /**
  * DiscoveryScreen - Clean, human-centered device search interface.
+ * Midnight Navy + Mint Emerald theme.
  */
 @Composable
 fun DiscoveryScreen(
@@ -78,7 +83,7 @@ fun DiscoveryScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(BackgroundDark)
+            .background(AppBackground)
             .padding(horizontal = 20.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -95,53 +100,57 @@ fun DiscoveryScreen(
                 fontWeight = FontWeight.Bold
             )
 
-            IconButton(
-                onClick = onCancel,
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(CardBackground)
+            Surface(
+                shape = CircleShape,
+                color = SurfaceElevated,
+                border = BorderStroke(1.dp, CardBorder)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Close",
-                    tint = TextBody,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-
-        if (hardwareWarnings.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(14.dp))
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF3E2723))
-                    .padding(12.dp)
-            ) {
-                hardwareWarnings.forEach { warning ->
-                    Text(
-                        text = warning,
-                        color = Color(0xFFFFCC80),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
+                IconButton(
+                    onClick = onCancel,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = TextBody,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        if (hardwareWarnings.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(14.dp))
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF24180A),
+                border = BorderStroke(1.dp, Color(0xFFF59E0B)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    hardwareWarnings.forEach { warning ->
+                        Text(
+                            text = "⚠️ $warning",
+                            color = Color(0xFFFDE68A),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
 
         // Center Radar
-        PeerRadarComponent(radarColor = BrandBlue)
+        PeerRadarComponent(radarColor = AccentMint)
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
         Text(
             text = statusMessage,
             color = TextTitle,
-            fontSize = 15.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold
         )
 
@@ -157,7 +166,7 @@ fun DiscoveryScreen(
             lineHeight = 18.sp
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         // Discovered Devices Section
         if (role == PeerRole.SENDER) {
@@ -175,8 +184,9 @@ fun DiscoveryScreen(
                 if (peers.isNotEmpty()) {
                     Text(
                         text = "${peers.size} found",
-                        color = TextMuted,
-                        fontSize = 12.sp
+                        color = AccentMint,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
@@ -184,20 +194,21 @@ fun DiscoveryScreen(
             Spacer(modifier = Modifier.height(10.dp))
 
             if (peers.isEmpty()) {
-                Box(
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = SurfaceElevated,
+                    border = BorderStroke(1.dp, CardBorder),
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(CardBackground)
-                        .border(1.dp, CardBorder, RoundedCornerShape(16.dp)),
-                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = stringResource(R.string.searching_devices),
-                        color = TextMuted,
-                        fontSize = 13.sp
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(R.string.searching_devices),
+                            color = TextMuted,
+                            fontSize = 13.sp
+                        )
+                    }
                 }
             } else {
                 LazyColumn(
@@ -212,20 +223,20 @@ fun DiscoveryScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Direct IP Option Button
             if (onSendToIp != null) {
                 Button(
                     onClick = { showIpDialog = true },
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = ButtonAquaGreen,
+                        containerColor = AccentAzure,
                         contentColor = Color.White
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .height(50.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Language,
@@ -235,7 +246,7 @@ fun DiscoveryScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Send to PC / IP Address Directly",
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
                 }
@@ -251,7 +262,7 @@ fun DiscoveryScreen(
                 title = {
                     Text(
                         text = "Send Directly to IP Address",
-                        color = Color.White,
+                        color = TextTitle,
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -259,20 +270,21 @@ fun DiscoveryScreen(
                     Column {
                         Text(
                             text = "Enter the destination PC or phone IP address:",
-                            color = Color.White.copy(alpha = 0.8f),
+                            color = TextBody,
                             fontSize = 13.sp
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedTextField(
                             value = targetIpInput,
                             onValueChange = { targetIpInput = it },
-                            placeholder = { Text("e.g. 192.168.2.106", color = Color.White.copy(alpha = 0.4f)) },
+                            placeholder = { Text("e.g. 192.168.2.106", color = TextMuted) },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = ButtonAquaGreen,
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                focusedBorderColor = AccentMint,
+                                unfocusedBorderColor = CardBorder,
+                                focusedTextColor = TextTitle,
+                                unfocusedTextColor = TextTitle,
+                                cursorColor = AccentMint
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -286,121 +298,22 @@ fun DiscoveryScreen(
                                 onSendToIp?.invoke(targetIpInput.trim())
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = ButtonAquaGreen)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AccentMint,
+                            contentColor = AccentMintText
+                        ),
+                        shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("Send Now")
+                        Text("Send Now", fontWeight = FontWeight.Bold)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showIpDialog = false }) {
-                        Text("Cancel", color = Color.White.copy(alpha = 0.7f))
+                        Text("Cancel", color = TextMuted)
                     }
                 },
-                containerColor = Color(0xFF0D3B75)
+                containerColor = SurfaceElevated
             )
-        }
-    }
-}
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(androidx.compose.ui.graphics.Color(0xFF2D2010))
-                    .border(1.dp, androidx.compose.ui.graphics.Color(0xFFF59E0B), RoundedCornerShape(12.dp))
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "⚠️ Notice: ${hardwareWarnings.joinToString(", ")}. Turn ON in settings for discovery.",
-                    color = androidx.compose.ui.graphics.Color(0xFFFDE68A),
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Center Radar
-        PeerRadarComponent(radarColor = BrandBlue)
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Text(
-            text = statusMessage,
-            color = TextTitle,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-
-        Text(
-            text = if (role == PeerRole.SENDER) {
-                stringResource(R.string.no_devices_found)
-            } else {
-                stringResource(R.string.waiting_for_sender)
-            },
-            color = TextMuted,
-            fontSize = 12.sp,
-            modifier = Modifier.padding(top = 4.dp, start = 20.dp, end = 20.dp),
-            lineHeight = 18.sp
-        )
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        // Discovered Devices Section
-        if (role == PeerRole.SENDER) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.nearby_devices),
-                    color = TextBody,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                if (peers.isNotEmpty()) {
-                    Text(
-                        text = "${peers.size} found",
-                        color = TextMuted,
-                        fontSize = 12.sp
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            if (peers.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(CardBackground)
-                        .border(1.dp, CardBorder, RoundedCornerShape(16.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = stringResource(R.string.searching_devices),
-                        color = TextMuted,
-                        fontSize = 13.sp
-                    )
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(peers, key = { it.id }) { peer ->
-                        PeerListItem(peer = peer, onConnect = { onPeerSelected(peer) })
-                    }
-                }
-            }
-        } else {
-            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
@@ -410,76 +323,81 @@ private fun PeerListItem(
     peer: DiscoveredPeer,
     onConnect: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(CardBackground)
-            .border(1.dp, CardBorder, RoundedCornerShape(14.dp))
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = SurfaceElevated,
+        border = BorderStroke(1.dp, CardBorder),
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f)
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(BrandBlue.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
             ) {
-                Icon(
-                    imageVector = Icons.Default.PhoneAndroid,
-                    contentDescription = null,
-                    tint = BrandBlue,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column {
-                Text(
-                    text = peer.name.ifBlank { "Nearby device" },
-                    color = TextTitle,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(SuccessEmerald)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Ready to connect",
-                        color = TextBody,
-                        fontSize = 12.sp
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(AppBackground),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PhoneAndroid,
+                        contentDescription = null,
+                        tint = AccentAzureLight,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
-            }
-        }
 
-        Button(
-            onClick = onConnect,
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = BrandBlue,
-                contentColor = TextTitle
-            )
-        ) {
-            Text(
-                text = "Send",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp
-            )
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column {
+                    Text(
+                        text = peer.name.ifBlank { "Nearby device" },
+                        color = TextTitle,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(SuccessEmerald)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Ready to connect",
+                            color = TextBody,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+
+            Button(
+                onClick = onConnect,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AccentMint,
+                    contentColor = AccentMintText
+                )
+            ) {
+                Text(
+                    text = "Send",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
         }
     }
 }

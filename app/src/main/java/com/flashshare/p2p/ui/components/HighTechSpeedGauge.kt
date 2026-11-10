@@ -26,7 +26,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.flashshare.p2p.ui.theme.BrandBlue
+import com.flashshare.p2p.ui.theme.AccentMint
 import com.flashshare.p2p.ui.theme.CardBackground
 import com.flashshare.p2p.ui.theme.CardBorder
 import com.flashshare.p2p.ui.theme.SuccessEmerald
@@ -74,9 +74,9 @@ fun HighTechSpeedGauge(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "MB/s",
-                    color = BrandBlue,
+                    color = AccentMint,
                     fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
