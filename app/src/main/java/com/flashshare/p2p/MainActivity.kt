@@ -82,6 +82,7 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
 
     var showPermissionDialog by remember { mutableStateOf(false) }
     var showFileTypePicker by remember { mutableStateOf(false) }
+    var pendingTargetIp by remember { mutableStateOf<String?>(null) }
     var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     // Multi-select Visual Media Picker for Native Resolution Videos and Photos
@@ -89,7 +90,14 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 100)
     ) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
-            viewModel.onFilesSelectedForSend(uris)
+            val ip = pendingTargetIp
+            if (ip != null) {
+                pendingTargetIp = null
+                viewModel.onFilesSelectedForSend(uris)
+                viewModel.sendViaDirectIp(ip)
+            } else {
+                viewModel.onFilesSelectedForSend(uris)
+            }
         }
     }
 
@@ -98,7 +106,14 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
-            viewModel.onFilesSelectedForSend(uris)
+            val ip = pendingTargetIp
+            if (ip != null) {
+                pendingTargetIp = null
+                viewModel.onFilesSelectedForSend(uris)
+                viewModel.sendViaDirectIp(ip)
+            } else {
+                viewModel.onFilesSelectedForSend(uris)
+            }
         }
     }
 
@@ -131,6 +146,7 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
             is TransferState.Idle -> {
                 DashboardScreen(
                     onSendClicked = {
+                        pendingTargetIp = null
                         executeWithPermissions {
                             showFileTypePicker = true
                         }
@@ -143,7 +159,12 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
                     receivedFiles = receivedFiles,
                     onOpenFile = { file -> viewModel.openReceivedFile(file) },
                     onRefreshFiles = { viewModel.loadReceivedFiles() },
-                    onSendDirectIp = { ip -> viewModel.sendViaDirectIp(ip) },
+                    onSendDirectIp = { ip ->
+                        pendingTargetIp = ip
+                        executeWithPermissions {
+                            showFileTypePicker = true
+                        }
+                    },
                     modifier = Modifier.padding(innerPadding)
                 )
             }
@@ -156,6 +177,9 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
                     hardwareWarnings = hardwareWarnings,
                     onPeerSelected = { peer ->
                         viewModel.connectAndSend(peer)
+                    },
+                    onSendToIp = { ip ->
+                        viewModel.sendViaDirectIp(ip)
                     },
                     onCancel = { viewModel.cancelTransfer() },
                     modifier = Modifier.padding(innerPadding)
@@ -170,6 +194,9 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
                     hardwareWarnings = hardwareWarnings,
                     onPeerSelected = { peer ->
                         viewModel.connectAndSend(peer)
+                    },
+                    onSendToIp = { ip ->
+                        viewModel.sendViaDirectIp(ip)
                     },
                     onCancel = { viewModel.cancelTransfer() },
                     modifier = Modifier.padding(innerPadding)

@@ -19,16 +19,26 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,6 +50,7 @@ import com.flashshare.p2p.data.model.PeerRole
 import com.flashshare.p2p.ui.components.PeerRadarComponent
 import com.flashshare.p2p.ui.theme.BackgroundDark
 import com.flashshare.p2p.ui.theme.BrandBlue
+import com.flashshare.p2p.ui.theme.ButtonAquaGreen
 import com.flashshare.p2p.ui.theme.CardBackground
 import com.flashshare.p2p.ui.theme.CardBorder
 import com.flashshare.p2p.ui.theme.SuccessEmerald
@@ -57,9 +68,13 @@ fun DiscoveryScreen(
     peers: List<DiscoveredPeer>,
     hardwareWarnings: List<String> = emptyList(),
     onPeerSelected: (DiscoveredPeer) -> Unit,
+    onSendToIp: ((String) -> Unit)? = null,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showIpDialog by remember { mutableStateOf(false) }
+    var targetIpInput by remember { mutableStateOf("") }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -98,6 +113,194 @@ fun DiscoveryScreen(
 
         if (hardwareWarnings.isNotEmpty()) {
             Spacer(modifier = Modifier.height(14.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF3E2723))
+                    .padding(12.dp)
+            ) {
+                hardwareWarnings.forEach { warning ->
+                    Text(
+                        text = warning,
+                        color = Color(0xFFFFCC80),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Center Radar
+        PeerRadarComponent(radarColor = BrandBlue)
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = statusMessage,
+            color = TextTitle,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+
+        Text(
+            text = if (role == PeerRole.SENDER) {
+                stringResource(R.string.no_devices_found)
+            } else {
+                stringResource(R.string.waiting_for_sender)
+            },
+            color = TextMuted,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 4.dp, start = 20.dp, end = 20.dp),
+            lineHeight = 18.sp
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Discovered Devices Section
+        if (role == PeerRole.SENDER) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.nearby_devices),
+                    color = TextBody,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (peers.isNotEmpty()) {
+                    Text(
+                        text = "${peers.size} found",
+                        color = TextMuted,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            if (peers.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(CardBackground)
+                        .border(1.dp, CardBorder, RoundedCornerShape(16.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.searching_devices),
+                        color = TextMuted,
+                        fontSize = 13.sp
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(peers, key = { it.id }) { peer ->
+                        PeerListItem(peer = peer, onConnect = { onPeerSelected(peer) })
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Direct IP Option Button
+            if (onSendToIp != null) {
+                Button(
+                    onClick = { showIpDialog = true },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ButtonAquaGreen,
+                        contentColor = Color.White
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Language,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Send to PC / IP Address Directly",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        } else {
+            Spacer(modifier = Modifier.weight(1f))
+        }
+
+        // Direct IP Dialog
+        if (showIpDialog) {
+            AlertDialog(
+                onDismissRequest = { showIpDialog = false },
+                title = {
+                    Text(
+                        text = "Send Directly to IP Address",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Column {
+                        Text(
+                            text = "Enter the destination PC or phone IP address:",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 13.sp
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = targetIpInput,
+                            onValueChange = { targetIpInput = it },
+                            placeholder = { Text("e.g. 192.168.2.106", color = Color.White.copy(alpha = 0.4f)) },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = ButtonAquaGreen,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (targetIpInput.isNotBlank()) {
+                                showIpDialog = false
+                                onSendToIp?.invoke(targetIpInput.trim())
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ButtonAquaGreen)
+                    ) {
+                        Text("Send Now")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showIpDialog = false }) {
+                        Text("Cancel", color = Color.White.copy(alpha = 0.7f))
+                    }
+                },
+                containerColor = Color(0xFF0D3B75)
+            )
+        }
+    }
+}
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
