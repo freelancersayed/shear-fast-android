@@ -55,6 +55,7 @@ fun DiscoveryScreen(
     role: PeerRole,
     statusMessage: String,
     peers: List<DiscoveredPeer>,
+    hardwareWarnings: List<String> = emptyList(),
     onPeerSelected: (DiscoveredPeer) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
@@ -95,7 +96,27 @@ fun DiscoveryScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        if (hardwareWarnings.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(androidx.compose.ui.graphics.Color(0xFF2D2010))
+                    .border(1.dp, androidx.compose.ui.graphics.Color(0xFFF59E0B), RoundedCornerShape(12.dp))
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "⚠️ Notice: ${hardwareWarnings.joinToString(", ")}. Turn ON in settings for discovery.",
+                    color = androidx.compose.ui.graphics.Color(0xFFFDE68A),
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Center Radar
         PeerRadarComponent(radarColor = BrandBlue)

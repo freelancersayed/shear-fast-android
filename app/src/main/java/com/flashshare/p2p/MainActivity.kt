@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
 fun FlashShareMainContent(viewModel: MainViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val peers by viewModel.discoveredPeers.collectAsStateWithLifecycle()
+    val hardwareWarnings by viewModel.hardwareWarnings.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -75,19 +76,15 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
     // Dynamic Multi-Permission Launcher for Modern Android
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissionsMap ->
-        val allGranted = permissionsMap.values.all { it }
-        if (allGranted) {
-            pendingAction?.invoke()
-            pendingAction = null
-        } else {
-            // Some permissions denied
-            pendingAction = null
-        }
+    ) { _ ->
+        viewModel.refreshHardwareStatus()
+        pendingAction?.invoke()
+        pendingAction = null
     }
 
     // Permission Verification Helper
     fun executeWithPermissions(action: () -> Unit) {
+        viewModel.refreshHardwareStatus()
         if (PermissionManager.hasAllPermissions(context)) {
             action()
         } else {
@@ -125,6 +122,7 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
                     role = state.role,
                     statusMessage = state.statusMessage,
                     peers = peers,
+                    hardwareWarnings = hardwareWarnings,
                     onPeerSelected = { peer ->
                         viewModel.connectAndSend(peer)
                     },
@@ -138,6 +136,7 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
                     role = state.role,
                     statusMessage = if (state.role == PeerRole.SENDER) "Receivers found! Select a device:" else "Awaiting transfer stream…",
                     peers = state.peers,
+                    hardwareWarnings = hardwareWarnings,
                     onPeerSelected = { peer ->
                         viewModel.connectAndSend(peer)
                     },

@@ -16,6 +16,7 @@ import com.flashshare.p2p.engine.nearby.NearbyConnectionEngine
 import com.flashshare.p2p.engine.socket.SocketManager
 import com.flashshare.p2p.engine.socket.TransferConfig
 import com.flashshare.p2p.engine.wifidirect.WifiDirectEngine
+import com.flashshare.p2p.permission.PermissionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,14 +26,14 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
- * MainViewModel manages high-speed peer discovery, socket life-cycles,
- * and reactive UI updates for FlashShare P2P.
+ * MainViewModel manages high-speed peer discovery, dual-engine lifecycle
+ * (Nearby Connections + Wi-Fi Direct), and reactive UI state updates for FlashShare P2P.
  */
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val storageRepo = FileStorageRepository(application)
     val socketManager = SocketManager(storageRepo)
-    private val nearbyEngine = NearbyConnectionEngine(application)
+    private val nearbyEngine = NearbyConnectionEngine(application, storageRepo)
     private val wifiDirectEngine = WifiDirectEngine(application)
 
     private val _uiState = MutableStateFlow<TransferState>(TransferState.Idle)
@@ -47,7 +48,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _allDiscoveredPeers = MutableStateFlow<List<DiscoveredPeer>>(emptyList())
     val discoveredPeers: StateFlow<List<DiscoveredPeer>> = _allDiscoveredPeers.asStateFlow()
 
+    private val _hardwareWarnings = MutableStateFlow<List<String>>(emptyList())
+    val hardwareWarnings: StateFlow<List<String>> = _hardwareWarnings.asStateFlow()
+
     private var activeTransferJob: Job? = null
+    private var isCurrentlySender = false
 
     init {
         setupEngines()
@@ -56,7 +61,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun setupEngines() {
         wifiDirectEngine.initialize()
 
-        // Combine peer discovery streams from both Nearby and Wi-Fi Direct
+        // Combine peer discovery streams from both Nearby Connections and Wi-Fi Direct
         viewModelScope.launch {
             combine(
                 nearbyEngine.discoveredPeers,
@@ -77,9 +82,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Handle Wi-Fi Direct Connection Handshake
+        // Nearby Connections transfer callbacks
+        nearbyEngine.onTransferProgress = { progress ->
+            _uiState.value = TransferState.Transferring(
+                progress = progress,
+                isSender = isCurrentlySender,
+                peerName = "Nearby Peer"
+            )
+        }
+
+        nearbyEngine.onTransferCompleted = { fileName, totalBytes, durationSec, speedMBps, destUri, isSender ->
+            _uiState.value = TransferState.Completed(
+                fileName = fileName,
+                fileSize = totalBytes,
+                durationSeconds = durationSec,
+                averageSpeedMBps = speedMBps,
+                destinationUri = destUri,
+                isSender = isSender
+            )
+        }
+
+        nearbyEngine.onError = { error ->
+            Log.e(TAG, "Nearby Engine Error: $error")
+            val currentState = _uiState.value
+            if (currentState is TransferState.Connecting || currentState is TransferState.Transferring) {
+                _uiState.value = TransferState.Error(error, isSender = isCurrentlySender)
+            }
+        }
+
+        // Wi-Fi Direct Connection Handshake
         wifiDirectEngine.onConnectionEstablished = { groupOwnerAddress, isGroupOwner ->
-            Log.i(TAG, "Wi-Fi Direct connection established. GO: $groupOwnerAddress, isGO: $isGroupOwner")
+            Log.i(TAG, "Wi-Fi Direct connected. GO: $groupOwnerAddress, isGO: $isGroupOwner")
             if (!isGroupOwner) {
                 // Client side initiates sending
                 val uri = _selectedFileUri.value
@@ -89,32 +122,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Handle Nearby Payload control messages (e.g. IP sync)
-        nearbyEngine.onPayloadReceived = { endpointId, data ->
-            val message = String(data)
-            Log.d(TAG, "Control payload from $endpointId: $message")
-            if (message.startsWith("IP:")) {
-                val ip = message.substringAfter("IP:")
-                val uri = _selectedFileUri.value
-                if (uri != null) {
-                    startSocketSend(ip, TransferConfig.DEFAULT_PORT, uri)
-                }
-            }
-        }
-
-        nearbyEngine.onError = { error ->
-            Log.e(TAG, "Nearby Engine Error: $error")
-        }
-
         wifiDirectEngine.onError = { error ->
             Log.e(TAG, "Wi-Fi Direct Error: $error")
         }
     }
 
     /**
+     * Checks and updates hardware warnings (Bluetooth, Wi-Fi, Location).
+     */
+    fun refreshHardwareStatus() {
+        val warnings = PermissionManager.getHardwareWarnings(getApplication())
+        _hardwareWarnings.value = warnings
+    }
+
+    /**
      * Prepares Sender flow when a file is selected from system media picker.
      */
     fun onFileSelectedForSend(uri: Uri) {
+        isCurrentlySender = true
+        refreshHardwareStatus()
+
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val metadata = storageRepo.getFileMetadata(uri)
@@ -126,6 +153,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     statusMessage = "Scanning for receiving devices…"
                 )
 
+                // Activate discovery on both engines concurrently
                 nearbyEngine.startDiscovery()
                 wifiDirectEngine.startDiscovery()
             } catch (e: Exception) {
@@ -136,9 +164,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Initiates Receiver flow: advertises, creates Wi-Fi Direct Group, and awaits raw TCP socket stream.
+     * Initiates Receiver flow: advertises via Nearby and creates Wi-Fi Direct Group.
      */
     fun startReceiving() {
+        isCurrentlySender = false
+        refreshHardwareStatus()
+
         _uiState.value = TransferState.Discovering(
             role = PeerRole.RECEIVER,
             statusMessage = "Ready to receive. Waiting for sender…"
@@ -147,7 +178,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         nearbyEngine.startAdvertising()
         wifiDirectEngine.createGroup()
 
-        // Launch persistent background socket listener on Dispatchers.IO
+        // Also launch fallback socket listener on port 8888 for Wi-Fi Direct connections
         activeTransferJob?.cancel()
         activeTransferJob = viewModelScope.launch(Dispatchers.IO) {
             val result = socketManager.receiveOriginalFile(
@@ -174,11 +205,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 },
                 onFailure = { error ->
-                    if (error !is InterruptedException) {
-                        _uiState.value = TransferState.Error(
-                            message = error.message ?: "Failed to receive file",
-                            isSender = false
-                        )
+                    if (error !is InterruptedException && _uiState.value !is TransferState.Completed) {
+                        Log.w(TAG, "Socket listener ended: ${error.message}")
                     }
                 }
             )
@@ -194,11 +222,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (peer.connectionType == PeerConnectionType.WIFI_DIRECT) {
             wifiDirectEngine.connectToDevice(peer.id)
         } else {
-            nearbyEngine.connectToPeer(peer.id)
-            // If peer IP is directly available, connect socket immediately
-            peer.ipAddress?.let { ip ->
-                val uri = _selectedFileUri.value ?: return
-                startSocketSend(ip, peer.port, uri)
+            val uri = _selectedFileUri.value
+            val meta = _filePayload.value
+            if (uri != null && meta != null) {
+                nearbyEngine.connectAndSend(peer.id, uri, meta)
+            } else {
+                _uiState.value = TransferState.Error("No file selected for transfer", isSender = true)
             }
         }
     }
@@ -258,6 +287,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         nearbyEngine.stopAll()
         wifiDirectEngine.tearDown()
         _uiState.value = TransferState.Idle
+        _allDiscoveredPeers.value = emptyList()
     }
 
     /**

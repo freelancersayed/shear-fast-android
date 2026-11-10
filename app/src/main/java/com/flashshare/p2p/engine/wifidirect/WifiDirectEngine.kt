@@ -20,8 +20,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * WifiDirectEngine provides hardware-level Wi-Fi Direct (Wi-Fi P2P) fallback
- * when Google Play Services or Nearby Connections is unavailable.
+ * WifiDirectEngine provides hardware-level Wi-Fi Direct (Wi-Fi P2P) discovery and group creation
+ * as a robust local networking engine.
  */
 class WifiDirectEngine(private val context: Context) {
 
@@ -85,7 +85,6 @@ class WifiDirectEngine(private val context: Context) {
     fun initialize() {
         if (wifiP2pManager == null) {
             Log.w(TAG, "Wi-Fi P2P Service not supported on this device")
-            onError?.invoke("Wi-Fi Direct not supported on this device")
             return
         }
 
@@ -99,12 +98,16 @@ class WifiDirectEngine(private val context: Context) {
         }
 
         if (!receiverRegistered) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(wifiDirectReceiver, intentFilter, Context.RECEIVER_NOT_EXPORTED)
-            } else {
-                context.registerReceiver(wifiDirectReceiver, intentFilter)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.registerReceiver(wifiDirectReceiver, intentFilter, Context.RECEIVER_NOT_EXPORTED)
+                } else {
+                    context.registerReceiver(wifiDirectReceiver, intentFilter)
+                }
+                receiverRegistered = true
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to register Wi-Fi Direct receiver", e)
             }
-            receiverRegistered = true
         }
     }
 
@@ -120,14 +123,15 @@ class WifiDirectEngine(private val context: Context) {
             }
 
             override fun onFailure(reasonCode: Int) {
-                Log.e(TAG, "Wi-Fi Direct peer discovery failed: $reasonCode")
-                onError?.invoke("Wi-Fi Direct discovery failed ($reasonCode)")
+                val reason = getReasonString(reasonCode)
+                Log.w(TAG, "Wi-Fi Direct peer discovery failed: $reason ($reasonCode)")
             }
         })
     }
 
     /**
      * Creates an autonomous Wi-Fi Direct Group (Receiver becomes Group Owner).
+     * Also initiates peer discovery so other devices can locate this group owner.
      */
     @SuppressLint("MissingPermission")
     fun createGroup() {
@@ -135,11 +139,14 @@ class WifiDirectEngine(private val context: Context) {
         wifiP2pManager?.createGroup(ch, object : WifiP2pManager.ActionListener {
             override fun onSuccess() {
                 Log.i(TAG, "Wi-Fi Direct Autonomous Group Created")
+                // Discover peers concurrently so beacons are actively exchanged
+                startDiscovery()
             }
 
             override fun onFailure(reasonCode: Int) {
-                Log.e(TAG, "Wi-Fi Direct createGroup failed: $reasonCode")
-                onError?.invoke("Failed to create Wi-Fi Direct group ($reasonCode)")
+                val reason = getReasonString(reasonCode)
+                Log.w(TAG, "Wi-Fi Direct createGroup: $reason ($reasonCode). Retrying discovery...")
+                startDiscovery()
             }
         })
     }
@@ -160,20 +167,25 @@ class WifiDirectEngine(private val context: Context) {
             }
 
             override fun onFailure(reasonCode: Int) {
-                Log.e(TAG, "Wi-Fi Direct connection failed: $reasonCode")
-                onError?.invoke("Wi-Fi Direct connection failed ($reasonCode)")
+                val reason = getReasonString(reasonCode)
+                Log.e(TAG, "Wi-Fi Direct connection failed: $reason ($reasonCode)")
+                onError?.invoke("Wi-Fi Direct connection failed: $reason")
             }
         })
     }
 
     /**
-     * Closes the active group and unregisters the receiver.
+     * Closes the active group and resets state.
      */
     fun tearDown() {
         val ch = channel
         if (ch != null && wifiP2pManager != null) {
-            wifiP2pManager.removeGroup(ch, null)
-            wifiP2pManager.stopPeerDiscovery(ch, null)
+            try {
+                wifiP2pManager.removeGroup(ch, null)
+                wifiP2pManager.stopPeerDiscovery(ch, null)
+            } catch (e: Exception) {
+                Log.w(TAG, "Error stopping Wi-Fi Direct: ${e.message}")
+            }
         }
         if (receiverRegistered) {
             try {
@@ -184,6 +196,15 @@ class WifiDirectEngine(private val context: Context) {
             receiverRegistered = false
         }
         _discoveredPeers.value = emptyList()
+    }
+
+    private fun getReasonString(reasonCode: Int): String {
+        return when (reasonCode) {
+            WifiP2pManager.ERROR -> "Internal Error (Ensure Wi-Fi & Location are ON)"
+            WifiP2pManager.P2P_UNSUPPORTED -> "Wi-Fi Direct unsupported on this device"
+            WifiP2pManager.BUSY -> "Framework busy, retrying..."
+            else -> "Error code $reasonCode"
+        }
     }
 
     companion object {
