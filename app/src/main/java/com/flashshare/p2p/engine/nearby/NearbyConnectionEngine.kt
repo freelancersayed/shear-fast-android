@@ -136,7 +136,7 @@ class NearbyConnectionEngine(
                     onEndpointConnected?.invoke(endpointId, peerName)
 
                     // If sender, schedule fallback in case onBandwidthChanged is delayed
-                    if (pendingOutgoingUri != null && pendingOutgoingMetadata != null) {
+                    if (pendingOutgoingUris.isNotEmpty()) {
                         bandwidthUpgradeTimeoutJob?.cancel()
                         bandwidthUpgradeTimeoutJob = engineScope.launch {
                             // Wait up to 3.5 seconds for Wi-Fi Direct / Hotspot upgrade
