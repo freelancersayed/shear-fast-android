@@ -30,6 +30,7 @@ import com.flashshare.p2p.ui.screens.DashboardScreen
 import com.flashshare.p2p.ui.screens.DiscoveryScreen
 import com.flashshare.p2p.ui.screens.TransferScreen
 import com.flashshare.p2p.ui.theme.BackgroundDark
+import com.flashshare.p2p.ui.theme.CorporateBlue
 import com.flashshare.p2p.ui.theme.FlashShareTheme
 import com.flashshare.p2p.ui.viewmodel.MainViewModel
 
@@ -95,7 +96,7 @@ fun FlashShareMainContent(viewModel: MainViewModel) {
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = BackgroundDark,
+        containerColor = if (uiState is TransferState.Idle) CorporateBlue else BackgroundDark,
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         when (val state = uiState) {

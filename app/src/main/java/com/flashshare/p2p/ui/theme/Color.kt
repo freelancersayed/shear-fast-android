@@ -26,3 +26,11 @@ val TextTitle = Color(0xFFF8FAFC)
 val TextBody = Color(0xFF94A3B8)
 val TextMuted = Color(0xFF64748B)
 val TextSubtle = Color(0xFF475569)
+
+// BondhuShare Corporate Theme
+val CorporateBlue = Color(0xFF1251A1)
+val ButtonAquaGreen = Color(0xFF4DB6AC)
+val ButtonSlateGrey = Color(0xFFB0BEC5)
+val BottomBarMutedTeal = Color(0xFF8BAAA1)
+val BottomBarIconActive = Color(0xFF1251A1)
+val BottomBarIconInactive = Color(0xFF4C6B63)
