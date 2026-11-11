@@ -2,8 +2,10 @@ package com.flashshare.p2p.engine.nearby
 
 import android.content.Context
 import android.net.Uri
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.os.PowerManager
 import android.util.Log
 import com.flashshare.p2p.data.model.DiscoveredPeer
 import com.flashshare.p2p.data.model.FileTransferPayload
@@ -91,6 +93,47 @@ class NearbyConnectionEngine(
     private val isPayloadTransmitted = AtomicBoolean(false)
     private var bandwidthUpgradeTimeoutJob: Job? = null
 
+    // Power & Radio locks for maximum throughput
+    private var wifiLock: WifiManager.WifiLock? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    private fun acquireLocks() {
+        try {
+            val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+            if (wifiLock == null || wifiLock?.isHeld == false) {
+                wifiLock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    wifiManager?.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "BondhuShare:NearbyLowLatencyLock")
+                } else {
+                    @Suppress("DEPRECATION")
+                    wifiManager?.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "BondhuShare:NearbyHighPerfLock")
+                }?.apply {
+                    setReferenceCounted(false)
+                    acquire()
+                }
+            }
+            val powerManager = context.applicationContext.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            if (wakeLock == null || wakeLock?.isHeld == false) {
+                wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "BondhuShare:NearbyWakeLock")?.apply {
+                    setReferenceCounted(false)
+                    acquire(30 * 60 * 1000L)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to acquire locks: ${e.message}")
+        }
+    }
+
+    private fun releaseLocks() {
+        try {
+            if (wifiLock?.isHeld == true) wifiLock?.release()
+        } catch (ignored: Exception) {}
+        wifiLock = null
+        try {
+            if (wakeLock?.isHeld == true) wakeLock?.release()
+        } catch (ignored: Exception) {}
+        wakeLock = null
+    }
+
     // Endpoint Discovery Callback
     private val endpointDiscoveryCallback = object : EndpointDiscoveryCallback() {
         override fun onEndpointFound(endpointId: String, info: DiscoveredEndpointInfo) {
@@ -118,12 +161,14 @@ class NearbyConnectionEngine(
         override fun onConnectionInitiated(endpointId: String, connectionInfo: ConnectionInfo) {
             Log.i(TAG, "Connection initiated with: $endpointId (${connectionInfo.endpointName}). Auto-accepting...")
             _connectionState.value = "CONNECTING"
+            acquireLocks()
             isPayloadTransmitted.set(false)
 
             connectionsClient.acceptConnection(endpointId, payloadCallback)
                 .addOnFailureListener { e ->
                     Log.e(TAG, "Failed to accept connection: ${e.message}", e)
                     onError?.invoke("Failed to accept connection: ${e.message}")
+                    releaseLocks()
                 }
         }
 
@@ -132,17 +177,18 @@ class NearbyConnectionEngine(
                 ConnectionsStatusCodes.STATUS_OK -> {
                     Log.i(TAG, "Connected successfully to: $endpointId. Awaiting high-speed Wi-Fi bandwidth upgrade...")
                     _connectionState.value = "CONNECTED"
+                    acquireLocks()
                     val peerName = _discoveredPeers.value.find { it.id == endpointId }?.name ?: "Remote Peer"
                     onEndpointConnected?.invoke(endpointId, peerName)
 
-                    // If sender, schedule fallback in case onBandwidthChanged is delayed
+                    // If sender, wait for high-speed Wi-Fi Direct upgrade (give up to 12 seconds for Wi-Fi Direct SoftAP negotiation)
                     if (pendingOutgoingUris.isNotEmpty()) {
                         bandwidthUpgradeTimeoutJob?.cancel()
                         bandwidthUpgradeTimeoutJob = engineScope.launch {
-                            // Wait up to 3.5 seconds for Wi-Fi Direct / Hotspot upgrade
-                            delay(3500)
+                            Log.i(TAG, "Waiting up to 12s for 5GHz Wi-Fi Direct bandwidth upgrade...")
+                            delay(12000)
                             if (!isPayloadTransmitted.get()) {
-                                Log.i(TAG, "Bandwidth upgrade timeout reached. Transmitting payload now...")
+                                Log.w(TAG, "Wi-Fi Direct upgrade wait completed. Transmitting payload now...")
                                 startTransmitIfReady(endpointId, "Fallback Link")
                             }
                         }
@@ -151,6 +197,7 @@ class NearbyConnectionEngine(
                 ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED -> {
                     Log.w(TAG, "Connection rejected by: $endpointId")
                     _connectionState.value = "REJECTED"
+                    releaseLocks()
                     onError?.invoke("Connection was rejected")
                 }
                 else -> {
@@ -158,6 +205,7 @@ class NearbyConnectionEngine(
                     val desc = ConnectionsStatusCodes.getStatusCodeString(code)
                     Log.w(TAG, "Connection failed: $desc ($code)")
                     _connectionState.value = "DISCONNECTED"
+                    releaseLocks()
                     onError?.invoke("Connection failed: $desc")
                 }
             }
@@ -166,9 +214,9 @@ class NearbyConnectionEngine(
         override fun onBandwidthChanged(endpointId: String, bandwidthInfo: BandwidthInfo) {
             Log.i(TAG, "Bandwidth upgraded for $endpointId: Quality=${bandwidthInfo.quality} (HIGH=3, MEDIUM=2, LOW=1)")
             if (bandwidthInfo.quality >= 2) {
-                // High-Speed Wi-Fi connection established! Transmit payload immediately!
+                // High-Speed 5GHz Wi-Fi connection established! Transmit payload immediately!
                 bandwidthUpgradeTimeoutJob?.cancel()
-                startTransmitIfReady(endpointId, "High-Speed Wi-Fi")
+                startTransmitIfReady(endpointId, "High-Speed Wi-Fi Direct")
             }
         }
 
@@ -176,6 +224,7 @@ class NearbyConnectionEngine(
             Log.i(TAG, "Disconnected from: $endpointId")
             _connectionState.value = "DISCONNECTED"
             bandwidthUpgradeTimeoutJob?.cancel()
+            releaseLocks()
         }
     }
 
@@ -366,11 +415,12 @@ class NearbyConnectionEngine(
     }
 
     /**
-     * Starts advertising this device as a Receiver using Strategy.P2P_STAR with disruptive upgrade enabled.
+     * Starts advertising this device as a Receiver using Strategy.P2P_POINT_TO_POINT with disruptive upgrade enabled.
+     * P2P_POINT_TO_POINT forces Google Nearby to form a 1-to-1 high-bandwidth 5GHz Wi-Fi Direct connection.
      */
     fun startAdvertising() {
         val advertisingOptions = AdvertisingOptions.Builder()
-            .setStrategy(Strategy.P2P_STAR)
+            .setStrategy(Strategy.P2P_POINT_TO_POINT)
             .setDisruptiveUpgrade(true)
             .build()
 
@@ -389,12 +439,12 @@ class NearbyConnectionEngine(
     }
 
     /**
-     * Starts discovery of nearby devices using Strategy.P2P_STAR.
+     * Starts discovery of nearby devices using Strategy.P2P_POINT_TO_POINT for maximum bandwidth.
      */
     fun startDiscovery() {
         _discoveredPeers.value = emptyList()
         val discoveryOptions = DiscoveryOptions.Builder()
-            .setStrategy(Strategy.P2P_STAR)
+            .setStrategy(Strategy.P2P_POINT_TO_POINT)
             .build()
 
         connectionsClient.startDiscovery(
@@ -494,6 +544,7 @@ class NearbyConnectionEngine(
             totalBytesBatchSent = 0L
             totalBytesBatchReceived = 0L
             isPayloadTransmitted.set(false)
+            releaseLocks()
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping Nearby client: ${e.message}", e)
         }

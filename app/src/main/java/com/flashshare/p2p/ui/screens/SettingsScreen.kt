@@ -183,7 +183,7 @@ fun SettingsScreen(
             SettingsInfoRow(
                 icon = Icons.Default.Info,
                 label = "Version",
-                value = "v1.0.5 (High Speed Engine)"
+                value = "v1.0.6 (High Speed Engine)"
             )
             Spacer(modifier = Modifier.height(12.dp))
             SettingsInfoRow(
@@ -217,7 +217,7 @@ fun SettingsScreen(
             text = {
                 Column {
                     Text(
-                        text = "Enter your friend's Wi-Fi / Public IP address. Ensure their app is on 'Receive Fast'.",
+                        text = "Enter destination IP address. (Tip: If connected via Phone Hotspot, enter 192.168.43.1 for 40-60+ MB/s super speed).",
                         color = TextBody,
                         fontSize = 13.sp,
                         lineHeight = 18.sp
@@ -226,7 +226,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = targetIpInput,
                         onValueChange = { targetIpInput = it },
-                        placeholder = { Text("e.g. 192.168.1.15", color = TextMuted) },
+                        placeholder = { Text("e.g. 192.168.43.1 or 192.168.2.106", color = TextMuted) },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AccentMint,
